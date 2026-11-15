@@ -1,6 +1,6 @@
 // Life UP — service worker (funciona offline)
-const CACHE = 'life-up-v0.2.0';
-const FILES = ['./', 'index.html', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'fonts/pixelify-sans-latin-400-normal.woff2', 'fonts/pixelify-sans-latin-700-normal.woff2'];
+const CACHE = 'life-up-v0.2.1';
+const FILES = ['./', 'index.html', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'fonts/PixelOperator.ttf', 'fonts/PixelOperator-Bold.ttf'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));

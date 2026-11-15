@@ -12,8 +12,8 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
 <style>
-@font-face{font-family:'Pixelify Sans';src:url(fonts/pixelify-sans-latin-400-normal.woff2) format('woff2');font-weight:400;font-display:swap}
-@font-face{font-family:'Pixelify Sans';src:url(fonts/pixelify-sans-latin-700-normal.woff2) format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Pixel Operator';src:url(fonts/PixelOperator.ttf) format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'Pixel Operator';src:url(fonts/PixelOperator-Bold.ttf) format('truetype');font-weight:700;font-display:swap}
 :root{
   --bg:#2c2846; --bg2:#3a3560; --card:#f4f0e6; --ink:#231a2e; --muted:#6b6280;
   --gold:#f0c83c; --gold2:#c9a020; --ok:#4cb85c; --bad:#e04848; --line:#231a2e;
@@ -22,7 +22,7 @@
 button,input,select,textarea,label{touch-action:manipulation}
 .ic{vertical-align:-0.2em;display:inline-block}
 html,body{margin:0;background:var(--bg);color:var(--ink);
-  font-family:'Pixelify Sans',-apple-system,system-ui,sans-serif;font-size:17px}
+  font-family:'Pixel Operator',-apple-system,system-ui,sans-serif;font-size:18px}
 body{padding-top:env(safe-area-inset-top);padding-bottom:calc(72px + env(safe-area-inset-bottom))}
 .px{font-weight:700;letter-spacing:.5px}
 button{font:inherit;cursor:pointer}
@@ -114,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.2.0';
+const VERSAO = '0.2.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -374,21 +374,17 @@ function desfazerRegistro(id){
   salvar(); render();
 }
 function fecharPeriodos(){
-  // período terminou sem completar: XP proporcional ao que foi feito, sem moedas
+  // período terminou sem completar: a quest falha
   const h = hoje();
   for (const k in S.per){
     const e = S.per[k];
     if (e.fechado || e.fim >= h) continue;
     e.fechado = true;
     const q = quest(e.qid);
-    if (e.completa || !q || e.feito <= 0) continue;
-    const frac = Math.min(1, e.feito / q.valor);
-    const g = ganhoVazio();
-    const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
-    e.parcial = Math.round(DIF[q.dif].xp * frac);
-    somarXP(g, e.parcial, cats); fecharLevel(g); aplicar(g);
-    avisar(`<h3>Fim do período</h3><p><b>${esc(q.titulo)}</b>: ${Math.round(frac*100)}% feito</p><p>+${e.parcial} XP (proporcional, sem moedas)</p>`);
-    if (g.lv) avisoLevel(g);
+    if (e.completa || !q) continue;
+    // regra: período não completado = quest falhou, não ganha nada; vai para o relatório e é recalculada na revisão bimestral
+    e.falhou = true;
+    avisar(`<h3>Quest não completada</h3><p><b>${esc(q.titulo)}</b>: ${num(e.feito)} de ${num(q.valor)}</p><p class="small">Sem recompensa neste período. Vai para o relatório da revisão bimestral.</p>`);
   }
 }
 
