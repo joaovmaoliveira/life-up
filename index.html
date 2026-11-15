@@ -17,59 +17,61 @@
   --gold:#f0c83c; --gold2:#c9a020; --ok:#4cb85c; --bad:#e04848; --line:#231a2e;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea,label{touch-action:manipulation}
+.ic{vertical-align:-0.2em;display:inline-block}
 html,body{margin:0;background:var(--bg);color:var(--ink);
   font-family:-apple-system,system-ui,sans-serif;font-size:16px}
 body{padding-top:env(safe-area-inset-top);padding-bottom:calc(72px + env(safe-area-inset-bottom))}
 .px{font-family:"Courier New",ui-monospace,monospace;font-weight:700;letter-spacing:.5px}
 button{font:inherit;cursor:pointer}
 input,select,textarea{font:inherit;font-size:16px;width:100%;padding:10px;border:3px solid var(--line);
-  background:#fff;color:var(--ink);border-radius:0}
+  background:#fff;color:var(--ink);border-radius:10px;-webkit-appearance:none;appearance:none}
 textarea{min-height:70px}
 label{display:block;font-weight:700;margin:12px 0 4px;font-size:.9rem}
 
 /* topo */
 .top{display:flex;align-items:center;gap:10px;padding:10px 14px;color:#fff}
-.avatar{width:52px;height:52px;border:3px solid var(--gold);background:#dfe9f5;padding:0;position:relative;flex:none}
-.avatar svg{width:100%;height:100%;display:block}
+.avatar{width:52px;height:52px;border-radius:12px;overflow:visible;border:3px solid var(--gold);background:#dfe9f5;padding:0;position:relative;flex:none}
+.avatar svg{width:100%;height:100%;display:block;border-radius:9px}
 .avatar .lv{position:absolute;bottom:-8px;right:-8px;background:var(--gold);color:var(--ink);
-  border:2px solid var(--line);font-size:.7rem;padding:1px 4px}
+  border:2px solid var(--line);font-size:.7rem;padding:1px 5px;border-radius:8px}
 .stats{flex:1;min-width:0}
 .stats .linha{display:flex;justify-content:space-between;font-size:.85rem}
-.bar{height:12px;border:2px solid var(--line);background:#1b1730;margin-top:4px}
+.bar{height:12px;border:2px solid var(--line);background:#1b1730;margin-top:4px;border-radius:8px;overflow:hidden}
 .bar>i{display:block;height:100%;background:var(--gold)}
-.iconbtn{background:none;border:none;color:#fff;font-size:1.4rem;padding:4px}
+.iconbtn{background:none;border:none;padding:4px;line-height:0}
 
 /* conteúdo */
 main{padding:4px 12px 16px}
 h2{color:#fff;margin:14px 2px 8px;font-size:1.1rem}
 .card{background:var(--card);border:3px solid var(--line);box-shadow:4px 4px 0 #15121f;
-  margin:0 0 12px;padding:12px}
+  margin:0 0 12px;padding:12px;border-radius:14px}
 .sub{display:flex;gap:6px;overflow-x:auto;margin:6px 0 10px}
-.chip{background:var(--bg2);color:#fff;border:2px solid var(--line);padding:6px 10px;white-space:nowrap;font-size:.85rem}
+.chip{background:var(--bg2);color:#fff;border:2px solid var(--line);padding:6px 12px;white-space:nowrap;font-size:.85rem;border-radius:10px}
 .chip.on{background:var(--gold);color:var(--ink)}
 .chip.off{opacity:.45}
 .quest{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:2px dashed #cfc7b4}
 .quest:last-child{border-bottom:none}
-.check{width:34px;height:34px;flex:none;border:3px solid var(--line);background:#fff;font-size:1.2rem;line-height:1}
+.check{width:36px;height:36px;flex:none;border:3px solid var(--line);background:#fff;border-radius:10px;padding:0;display:flex;align-items:center;justify-content:center}
 .check.on{background:var(--ok);color:#fff}
 .qtxt{flex:1;min-width:0}
 .qtxt b{display:block}
 .qtxt.done b{text-decoration:line-through;color:var(--muted)}
-.tag{display:inline-block;font-size:.72rem;padding:1px 6px;border:2px solid var(--line);margin:3px 4px 0 0;color:#fff;
+.tag{display:inline-block;font-size:.72rem;padding:1px 6px;border:2px solid var(--line);margin:3px 4px 0 0;color:#fff;border-radius:7px;
   text-shadow:0 1px 0 rgba(0,0,0,.4)}
 .small{font-size:.8rem;color:var(--muted)}
 .rw{font-size:.8rem;text-align:right;white-space:nowrap}
 .btn{display:block;width:100%;background:var(--gold);border:3px solid var(--line);box-shadow:3px 3px 0 #15121f;
-  padding:12px;font-weight:700;margin:8px 0;color:var(--ink)}
+  padding:12px;font-weight:700;margin:8px 0;color:var(--ink);border-radius:12px}
 .btn.sec{background:#fff}
 .btn.bad{background:var(--bad);color:#fff}
 .btn.ok{background:var(--ok);color:#fff}
 .row{display:flex;gap:8px}
 .row>*{flex:1}
-.mbar{height:14px;border:2px solid var(--line);background:#fff;margin:8px 0 4px}
+.mbar{height:14px;border:2px solid var(--line);background:#fff;margin:8px 0 4px;border-radius:8px;overflow:hidden}
 .mbar>i{display:block;height:100%}
 .meta-h{display:flex;gap:10px;align-items:flex-start}
-.meta-h .cor{width:10px;align-self:stretch;border:2px solid var(--line);flex:none}
+.meta-h .cor{width:10px;align-self:stretch;border:2px solid var(--line);flex:none;border-radius:6px}
 .link{background:none;border:none;color:#3a5bd0;padding:6px 0;font-weight:600}
 .vazio{color:#d8d2ea;text-align:center;padding:24px 10px}
 .resumo{display:flex;justify-content:space-between;color:#fff;font-size:.85rem;margin:2px 2px 8px}
@@ -80,6 +82,7 @@ nav{position:fixed;left:0;right:0;bottom:0;background:#1b1730;border-top:3px sol
 nav button{flex:1;background:none;border:none;color:#a59cc4;padding:10px 0 8px;font-size:.72rem}
 nav button span{display:block;font-size:1.35rem}
 nav button.on{color:var(--gold)}
+nav button:not(.on) svg{opacity:.55}
 
 /* folhas e janelas */
 .sheet{position:fixed;inset:0;background:var(--bg);z-index:10;overflow-y:auto;
@@ -87,10 +90,11 @@ nav button.on{color:var(--gold)}
 .sheet .card{margin-top:8px}
 .sheet h3{color:#fff;margin:8px 0}
 .days{display:flex;gap:4px}
-.days button{flex:1;padding:8px 0;border:2px solid var(--line);background:#fff;font-weight:700}
+.days button{flex:1;padding:10px 0;border:2px solid var(--line);background:#fff;font-weight:700;border-radius:10px;color:var(--ink)}
 .days button.on{background:var(--gold)}
 .ck{display:flex;align-items:center;gap:8px;padding:6px 0;font-weight:500}
-.ck input{width:22px;height:22px;flex:none}
+.ck input{width:28px;height:28px;flex:none;padding:0;border-radius:8px;background:#fff}
+.ck input:checked{background:var(--ok);box-shadow:inset 0 0 0 5px #fff}
 .modal{position:fixed;inset:0;background:rgba(10,8,20,.75);z-index:20;display:flex;align-items:center;justify-content:center;padding:20px}
 .modal .card{width:100%;max-width:380px;text-align:center}
 .modal .big{font-size:2.6rem;margin:4px 0}
@@ -108,7 +112,7 @@ nav button.on{color:var(--gold)}
 
 <script>
 'use strict';
-const VERSAO = '0.1.0';
+const VERSAO = '0.1.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -333,14 +337,42 @@ function pedirNumero(titulo, padrao, sub=''){
 let filaAvisos = Promise.resolve();
 const avisar = (html) => { filaAvisos = filaAvisos.then(() => janela(html, [{txt:'Continuar', ret:true}])); };
 function avisoLevel(g){
-  avisar(`<div class="big">⬆️</div><h3 class="px">LEVEL UP!</h3><p>Você chegou ao <b>nível ${g.nivelNovo}</b></p>
-    <p>+${g.lv*LEVELUP_MOEDAS} 🪙 · +${g.lv} baú${g.lv>1?'s':''} surpresa 🎁</p>
+  avisar(`<div class="big">${ic('subir','64px')}</div><h3 class="px">LEVEL UP!</h3><p>Você chegou ao <b>nível ${g.nivelNovo}</b></p>
+    <p>+${g.lv*LEVELUP_MOEDAS} ${ic('moeda')} · +${g.lv} baú${g.lv>1?'s':''} surpresa ${ic('bau')}</p>
     <p class="small">Os baús ficam guardados no Perfil e poderão ser abertos na próxima fase do app.</p>`);
 }
 function avisoMeta(m){
   const b = BONUS_META[m.prazo];
-  avisar(`<div class="big">🏆</div><h3 class="px">META CONCLUÍDA!</h3><p><b>${esc(m.titulo)}</b></p>
-    <p>+${b.xp} XP · +${b.m} 🪙${b.bau?' · +1 baú 🎁':''}</p>`);
+  avisar(`<div class="big">${ic('trofeu','64px')}</div><h3 class="px">META CONCLUÍDA!</h3><p><b>${esc(m.titulo)}</b></p>
+    <p>+${b.xp} XP · +${b.m} ${ic('moeda')}${b.bau?` · +1 baú ${ic('bau')}`:''}</p>`);
+}
+
+
+/* ===================== ÍCONES EM PIXEL ART ===================== */
+const ICOR = {K:'#231a2e',W:'#f4f0e6',L:'#a9b4c8',G:'#f0c83c',Y:'#c9902a',R:'#e04848',O:'#f08c2a',B:'#9a5a2a',b:'#6e3e1c',U:'#4a7fe0'};
+const ICONES = {
+  espada:["..........WW",".........WWL","........WWL.",".......WWL..","......WWL...",".....WWL....",".G..WWL.....",".GGWWL......","..GGL.......","..BGGG......",".BB..G......","BB.........."],
+  alvo:["...KKKKKK...","..KRRRRRRK..",".KRWWWWWWRK.","KRWRRRRRRWRK","KRWRWWWWRWRK","KRWRWRRWRWRK","KRWRWRRWRWRK","KRWRWWWWRWRK","KRWRRRRRRWRK",".KRWWWWWWRK.","..KRRRRRRK..","...KKKKKK..."],
+  calendario:["..K......K..",".KKKKKKKKKK.",".KRRRRRRRRK.",".KRRRRRRRRK.",".KKKKKKKKKK.",".KWWWWWWWWK.",".KWKWKWKWWK.",".KWWWWWWWWK.",".KWKWKWKWWK.",".KWWWWWWWWK.",".KKKKKKKKKK.","............"],
+  loja:["....KKKK....",".....KK.....","....KGGK....","...KBBBBK...","..KBBBBBBK..",".KBBBGGBBBK.",".KBBGBBBBBK.",".KBBBGGBBBK.",".KBBBBBGBBK.",".KBBBGGBBBK.","..KBBBBBBK..","...KKKKKK..."],
+  engrenagem:[".....KK.....","..KK.KK.KK..","..KWKWWKWK..","...KWWWWK...",".KKWWKKWWKK.","KKWWK..KWWKK","KKWWK..KWWKK",".KKWWKKWWKK.","...KWWWWK...","..KWKWWKWK..","..KK.KK.KK..",".....KK....."],
+  moeda:["............","...KKKKKK...","..KGGGGGGK..",".KGWGGGGGYK.",".KGWGKKGGYK.",".KGGGKGGGYK.",".KGGGKGGGYK.",".KGGGKGGGYK.",".KGGKKKGGYK.","..KGGGGGYK..","...KKKKKK...","............"],
+  fogo:[".....R......","....RR......","....RRR..R..","...RRORR.RR.","..RROORRRRR.","..RROOORRRR.",".RROOGOORRR.",".RROGGGOORR.",".RROGGGGORR.","..RROGGORR..","...RRRRRR...","............"],
+  trofeu:["..KKKKKKKK..","KKKGGGGGGKKK","KGKGWGGGYKGK","KGKGWGGGYKGK",".KKGGGGGYKK.","...KGGGYK...","....KGYK....",".....KK.....","....KGYK....","...KKKKKK...","...KYYYYK...","...KKKKKK..."],
+  medalha:["..KKK..KKK..","..KRRKKUUK..","...KRRUUK...","....KRUK....","....KKKK....","...KGGGGK...","..KGGWGGYK..","..KGWGGGYK..","..KGGGGGYK..","..KGGGGYYK..","...KYYYYK...","....KKKK...."],
+  bau:["................","................","...KKKKKKKKKK...","..KBBBBBBBBBBK..","..KBbBBBBBBbBK..","..KGGGGGGGGGGK..","..KBBBBGGBBBBK..","..KKKKKGYKKKKK..","..KBBBBGYBBBBK..","..KBbBBBBBBbBK..","..KBbBBBBBBbBK..","..KGGGGGGGGGGK..","..KBBBBBBBBBBK..","..KKKKKKKKKKKK..","................","................"],
+  subir:[".....KK.....","....KGGK....","...KGGGGK...","..KGGGGGGK..",".KGGGGGGGGK.",".KKKKGGKKKK.","....KGGK....","....KGGK....","....KGGK....","....KGGK....","....KKKK....","............"],
+  check:["............","............",".........WW.","........WWW.",".......WWW..",".WW...WWW...",".WWW.WWW....","..WWWWW.....","...WWW......","....W.......","............","............"],
+  nota:["..KKKKKKK...","..KWWWWWKK..","..KWKKKWWK..","..KWWWWWWK..","..KWKKKKWK..","..KWWWWWWK..","..KWKKKKWK..","..KWWWWWWK..","..KWKKKWWK..","..KWWWWWWK..","..KKKKKKKK..","............"],
+};
+const _icCache = {};
+function ic(nome, tam='1.15em'){
+  if (!_icCache[nome]){
+    const art = ICONES[nome], n = art.length; let r = '';
+    art.forEach((l,y) => [...l].forEach((c,x) => { if (ICOR[c]) r += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${ICOR[c]}"/>`; }));
+    _icCache[nome] = `viewBox="0 0 ${n} ${n}" shape-rendering="crispEdges">${r}</svg>`;
+  }
+  return `<svg class="ic" style="width:${tam};height:${tam}" ${_icCache[nome]}`;
 }
 
 /* ===================== PERSONAGEM (pixel art) ===================== */
@@ -376,11 +408,11 @@ function topo(){
   return `<div class="top">
     <button class="avatar" data-a="tab" data-id="perfil">${personagemSVG()}<span class="lv px">${nv.n}</span></button>
     <div class="stats">
-      <div class="linha"><b class="px">Nível ${nv.n}</b><span>🪙 ${S.moedas} · 🔥 ${S.seq.atual}</span></div>
+      <div class="linha"><b class="px">Nível ${nv.n}</b><span>${ic('moeda')} ${S.moedas} &nbsp;${ic('fogo')} ${S.seq.atual}</span></div>
       <div class="bar"><i style="width:${Math.min(100, nv.dentro/nv.need*100)}%"></i></div>
       <div class="linha small" style="color:#cfc8e6"><span>${nv.dentro} / ${nv.need} XP</span><span>${bonusSeq()?`bônus sequência +${bonusSeq()*100}%`:''}</span></div>
     </div>
-    <button class="iconbtn" data-a="tab" data-id="config">⚙️</button>
+    <button class="iconbtn" data-a="tab" data-id="config">${ic('engrenagem','30px')}</button>
   </div>`;
 }
 function tagsMetas(ids){
@@ -394,7 +426,7 @@ function telaMissoes(){
   let status = '';
   if (n){
     const falta = n - feitas, f = folga(n);
-    status = (feitas >= 1 && falta <= f) ? '✅ Dia garantido para a sequência' : `Faltam ${Math.max(1, falta - f)} para garantir a sequência`;
+    status = (feitas >= 1 && falta <= f) ? `${ic('check','1em').replace(/#f4f0e6/g,'#4cb85c')} Dia garantido para a sequência` : `Faltam ${Math.max(1, falta - f)} para garantir a sequência`;
   }
   let h = `<div class="sub">
     <button class="chip on">Diária</button><button class="chip off">Semanal</button>
@@ -410,7 +442,7 @@ function telaMissoes(){
       const e = r.feitas[q.id];
       const xp = e ? (e.xpQuest ?? e.g.xp) : Math.round(DIF[q.dif].xp*(1+bonusSeq()));
       return `<div class="quest">
-        <button class="check ${e?'on':''}" data-a="${e?'desfazer':'concluir'}" data-id="${q.id}">${e?'✓':''}</button>
+        <button class="check ${e?'on':''}" data-a="${e?'desfazer':'concluir'}" data-id="${q.id}">${e?ic('check','26px'):''}</button>
         <div class="qtxt ${e?'done':''}"><b>${esc(q.titulo)}</b>${tagsMetas(q.metas)}</div>
         <div class="rw">${DIF[q.dif].nome}<br><b>+${xp} XP</b></div></div>`;
     }).join('')}<div class="small" style="margin-top:8px">${status}</div></div>`;
@@ -419,11 +451,11 @@ function telaMissoes(){
   const pagas = r.extras.filter(x => x.feita && x.moedas > 0).length;
   h += `<h2>Quests extras <span class="small" style="color:#cfc8e6">(imprevistos do dia · só moedas)</span></h2><div class="card">`;
   h += r.extras.length ? r.extras.map(x => `<div class="quest">
-      <button class="check ${x.feita?'on':''}" data-a="extra" data-id="${x.id}">${x.feita?'✓':''}</button>
+      <button class="check ${x.feita?'on':''}" data-a="extra" data-id="${x.id}">${x.feita?ic('check','26px'):''}</button>
       <div class="qtxt ${x.feita?'done':''}"><b>${esc(x.titulo)}</b>${x.meta?tagsMetas([x.meta]):''}</div>
-      <div class="rw">${x.feita ? (x.moedas?`+${x.moedas} 🪙`:'sem moedas') : (pagas<EXTRA_MAX_PAGAS?`+${EXTRA_MOEDAS} 🪙`:'sem moedas')}<br>
+      <div class="rw">${x.feita ? (x.moedas?`+${x.moedas} ${ic('moeda')}`:'sem moedas') : (pagas<EXTRA_MAX_PAGAS?`+${EXTRA_MOEDAS} ${ic('moeda')}`:'sem moedas')}<br>
       <button class="link" data-a="apagarExtra" data-id="${x.id}">apagar</button></div></div>`).join('')
-    : `<div class="small">Nenhuma ainda hoje. Valem ${EXTRA_MOEDAS} 🪙 cada, até ${EXTRA_MAX_PAGAS} por dia.</div>`;
+    : `<div class="small">Nenhuma ainda hoje. Valem ${EXTRA_MOEDAS} ${ic('moeda')} cada, até ${EXTRA_MAX_PAGAS} por dia.</div>`;
   h += `<button class="btn sec" data-a="novaExtra">+ Quest extra</button></div>`;
   return h;
 }
@@ -438,13 +470,13 @@ function cardMeta(m){
       <div class="small">${num(m.progresso)} / ${num(m.alvo)} ${esc(m.unidade||'')} · ${Math.floor(m.alvo? m.progresso/m.alvo*100 : 0)}%</div>`;
   }
   let st = '';
-  if (m.status === 'cumprida') st = `<span class="tag" style="background:var(--ok)">✓ Completa</span>`;
+  if (m.status === 'cumprida') st = `<span class="tag" style="background:var(--ok)">Completa</span>`;
   if (m.status === 'nao') st = `<span class="tag" style="background:#777">Não cumprida</span>`;
   let h = `<div class="card"><div class="meta-h"><div class="cor" style="background:${c.cor}"></div><div style="flex:1;min-width:0">
     <b>${esc(m.titulo)}</b> ${st}
     <div class="small">${c.nome} · ${PRAZO_CURTO[m.prazo]} · ${m.tipo==='auto'?'Progresso':'Marco'}</div>
     ${corpo}
-    ${m.obs ? `<div class="small" style="margin-top:4px">📝 ${esc(m.obs)}</div>`:''}
+    ${m.obs ? `<div class="small" style="margin-top:4px">${ic('nota')} ${esc(m.obs)}</div>`:''}
   </div></div>`;
   if (m.tipo === 'manual' && m.status === 'ativa'){
     h += `<div class="row"><button class="btn ok" data-a="cumprida" data-id="${m.id}">Cumprida</button>
@@ -476,27 +508,27 @@ function telaEmBreve(nome, txt){
   return `<h2>${nome}</h2><div class="card"><b>Em breve</b><p>${txt}</p></div>`;
 }
 function telaLoja(){
-  return `<h2>Loja</h2><div class="card"><p>Você tem <b>${S.moedas} 🪙</b>.</p>
+  return `<h2>Loja</h2><div class="card"><p>Você tem <b>${S.moedas} ${ic('moeda')}</b>.</p>
     <p class="small">A loja (escudo, pergaminho, dado e recompensas da vida real) chega na próxima fase. Suas moedas já ficam guardadas.</p></div>`;
 }
 function telaPerfil(){
   const nv = nivel(S.xp);
   const completas = S.metas.filter(m => m.status === 'cumprida').length;
   let h = `<h2>Perfil</h2><div class="card" style="text-align:center">
-    <div style="width:120px;height:120px;margin:0 auto;border:3px solid var(--line);background:#dfe9f5">${personagemSVG()}</div>
+    <div style="width:120px;height:120px;margin:0 auto;border:3px solid var(--line);background:#dfe9f5;border-radius:16px;overflow:hidden">${personagemSVG()}</div>
     <div class="px" style="margin-top:8px;font-size:1.1rem">Nível ${nv.n}</div>
     <div class="small">Classe: Residente R3 de Pediatria</div>
     <div class="bar" style="background:#fff"><i style="width:${nv.dentro/nv.need*100}%"></i></div>
     <div class="small">${nv.dentro} / ${nv.need} XP · ${S.xp} XP no total</div></div>
     <div class="card">
       <div class="row" style="text-align:center">
-        <div><div class="px" style="font-size:1.3rem">🔥 ${S.seq.atual}</div><div class="small">sequência</div></div>
-        <div><div class="px" style="font-size:1.3rem">🏅 ${S.seq.recorde}</div><div class="small">recorde</div></div>
-        <div><div class="px" style="font-size:1.3rem">🏆 ${completas}</div><div class="small">metas completas</div></div>
+        <div><div class="px" style="font-size:1.3rem">${ic('fogo')} ${S.seq.atual}</div><div class="small">sequência</div></div>
+        <div><div class="px" style="font-size:1.3rem">${ic('medalha')} ${S.seq.recorde}</div><div class="small">recorde</div></div>
+        <div><div class="px" style="font-size:1.3rem">${ic('trofeu')} ${completas}</div><div class="small">metas completas</div></div>
       </div>
       <div class="row" style="text-align:center;margin-top:10px">
-        <div><div class="px" style="font-size:1.3rem">🪙 ${S.moedas}</div><div class="small">moedas</div></div>
-        <div><div class="px" style="font-size:1.3rem">🎁 ${S.baus}</div><div class="small">baús guardados</div></div>
+        <div><div class="px" style="font-size:1.3rem">${ic('moeda')} ${S.moedas}</div><div class="small">moedas</div></div>
+        <div><div class="px" style="font-size:1.3rem">${ic('bau')} ${S.baus}</div><div class="small">baús guardados</div></div>
       </div></div>
     <h2>Nível por categoria</h2><div class="card">`;
   h += CATS.map(c => { const v = nivel(S.catXp[c.id]||0);
@@ -522,9 +554,9 @@ function render(){
   else if (ui.tab === 'loja') corpo = telaLoja();
   else if (ui.tab === 'perfil') corpo = telaPerfil();
   else if (ui.tab === 'config') corpo = telaConfig();
-  const nb = (id, ic, txt) => `<button class="${ui.tab===id?'on':''}" data-a="tab" data-id="${id}"><span>${ic}</span>${txt}</button>`;
+  const nb = (id, icn, txt) => `<button class="${ui.tab===id?'on':''}" data-a="tab" data-id="${id}"><span>${ic(icn,'28px')}</span>${txt}</button>`;
   app.innerHTML = topo() + `<main>${corpo}</main>
-    <nav>${nb('missoes','⚔️','Missões')}${nb('metas','🎯','Metas')}${nb('calendario','📅','Calendário')}${nb('loja','🛒','Loja')}</nav>`;
+    <nav>${nb('missoes','espada','Missões')}${nb('metas','alvo','Metas')}${nb('calendario','calendario','Calendário')}${nb('loja','loja','Loja')}</nav>`;
 }
 
 /* ===================== FORMULÁRIOS ===================== */
@@ -574,7 +606,7 @@ function formQuest(id, metaId){
   const metas = S.metas.filter(m => m.status !== 'nao' || q.metas.includes(m.id));
   sheetEl.innerHTML = `<div class="sheet"><h3>${id?'Editar quest':'Nova quest'}</h3><div class="card">
     <label>Título</label><input id="qTitulo" value="${esc(q.titulo)}" placeholder="Ex.: Ler 20 páginas">
-    <label>Dificuldade</label><select id="qDif">${Object.entries(DIF).map(([k,d])=>`<option value="${k}" ${k===q.dif?'selected':''}>${d.nome} · ${d.xp} XP · ${d.m} 🪙</option>`).join('')}</select>
+    <label>Dificuldade</label><select id="qDif">${Object.entries(DIF).map(([k,d])=>`<option value="${k}" ${k===q.dif?'selected':''}>${d.nome} · ${d.xp} XP · ${d.m} moedas</option>`).join('')}</select>
     <label>Dias</label><div class="days" id="qDias">${SEMANA.map((s,i)=>`<button data-d="${i}" class="${formDias.includes(i)?'on':''}">${s[0]}</button>`).join('')}</div>
     <div class="small" id="qDiasTxt"></div>
     <label>Ligada às metas</label>${metas.map(m=>`<label class="ck"><input type="checkbox" value="${m.id}" ${q.metas.includes(m.id)?'checked':''}>
@@ -612,7 +644,7 @@ function salvarQuest(id){
 function formExtra(){
   const metas = S.metas.filter(m => m.status !== 'nao');
   sheetEl.innerHTML = `<div class="sheet"><h3>Quest extra</h3><div class="card">
-    <p class="small">Para imprevistos do dia. Vale ${EXTRA_MOEDAS} 🪙 (até ${EXTRA_MAX_PAGAS} por dia), não dá XP e não conta para a sequência.</p>
+    <p class="small">Para imprevistos do dia. Vale ${EXTRA_MOEDAS} ${ic('moeda')} (até ${EXTRA_MAX_PAGAS} por dia), não dá XP e não conta para a sequência.</p>
     <label>Título</label><input id="xTitulo" placeholder="Ex.: Resolver pendência do banco">
     <label>Ligar a uma meta? (opcional)</label><select id="xMeta"><option value="">Nenhuma</option>
       ${metas.map(m=>`<option value="${m.id}">${esc(m.titulo)}</option>`).join('')}</select>
@@ -640,7 +672,7 @@ function importar(){
       if (!dados || dados.v !== 1 || !Array.isArray(dados.metas)) throw 0;
       if (!(await confirmar('Substituir todos os dados atuais por este backup?', 'Substituir', 'bad'))) return;
       S = dados; avaliarSequencia(); diaDeHoje(); salvar(); render();
-      janela('<h3>Backup importado ✔</h3>', [{txt:'Ok', ret:1}]);
+      janela('<h3>Backup importado!</h3>', [{txt:'Ok', ret:1}]);
     } catch(e){ janela('<h3>Arquivo inválido</h3><p class="small">Escolha um arquivo de backup do Life UP (.json).</p>', [{txt:'Ok', ret:1}]); }
     inp.value = '';
   };
