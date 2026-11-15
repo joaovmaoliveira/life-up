@@ -2,33 +2,712 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Life UP</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Life UP">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#2c2846">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
 <style>
-  html,body{margin:0;height:100%;background:#2c2846;color:#f0c83c;
-    font-family:"Courier New",monospace;}
-  body{display:flex;flex-direction:column;align-items:center;justify-content:center;
-    text-align:center;padding:env(safe-area-inset-top) 20px env(safe-area-inset-bottom);}
-  img{width:128px;height:128px;image-rendering:pixelated;}
-  h1{font-size:2.4rem;margin:16px 0 8px;letter-spacing:2px;}
-  p{color:#e8e4f5;margin:4px 0;}
-  .v{opacity:.5;font-size:.8rem;margin-top:24px;}
+:root{
+  --bg:#2c2846; --bg2:#3a3560; --card:#f4f0e6; --ink:#231a2e; --muted:#6b6280;
+  --gold:#f0c83c; --gold2:#c9a020; --ok:#4cb85c; --bad:#e04848; --line:#231a2e;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,system-ui,sans-serif;font-size:16px}
+body{padding-top:env(safe-area-inset-top);padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+.px{font-family:"Courier New",ui-monospace,monospace;font-weight:700;letter-spacing:.5px}
+button{font:inherit;cursor:pointer}
+input,select,textarea{font:inherit;font-size:16px;width:100%;padding:10px;border:3px solid var(--line);
+  background:#fff;color:var(--ink);border-radius:0}
+textarea{min-height:70px}
+label{display:block;font-weight:700;margin:12px 0 4px;font-size:.9rem}
+
+/* topo */
+.top{display:flex;align-items:center;gap:10px;padding:10px 14px;color:#fff}
+.avatar{width:52px;height:52px;border:3px solid var(--gold);background:#dfe9f5;padding:0;position:relative;flex:none}
+.avatar svg{width:100%;height:100%;display:block}
+.avatar .lv{position:absolute;bottom:-8px;right:-8px;background:var(--gold);color:var(--ink);
+  border:2px solid var(--line);font-size:.7rem;padding:1px 4px}
+.stats{flex:1;min-width:0}
+.stats .linha{display:flex;justify-content:space-between;font-size:.85rem}
+.bar{height:12px;border:2px solid var(--line);background:#1b1730;margin-top:4px}
+.bar>i{display:block;height:100%;background:var(--gold)}
+.iconbtn{background:none;border:none;color:#fff;font-size:1.4rem;padding:4px}
+
+/* conteúdo */
+main{padding:4px 12px 16px}
+h2{color:#fff;margin:14px 2px 8px;font-size:1.1rem}
+.card{background:var(--card);border:3px solid var(--line);box-shadow:4px 4px 0 #15121f;
+  margin:0 0 12px;padding:12px}
+.sub{display:flex;gap:6px;overflow-x:auto;margin:6px 0 10px}
+.chip{background:var(--bg2);color:#fff;border:2px solid var(--line);padding:6px 10px;white-space:nowrap;font-size:.85rem}
+.chip.on{background:var(--gold);color:var(--ink)}
+.chip.off{opacity:.45}
+.quest{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:2px dashed #cfc7b4}
+.quest:last-child{border-bottom:none}
+.check{width:34px;height:34px;flex:none;border:3px solid var(--line);background:#fff;font-size:1.2rem;line-height:1}
+.check.on{background:var(--ok);color:#fff}
+.qtxt{flex:1;min-width:0}
+.qtxt b{display:block}
+.qtxt.done b{text-decoration:line-through;color:var(--muted)}
+.tag{display:inline-block;font-size:.72rem;padding:1px 6px;border:2px solid var(--line);margin:3px 4px 0 0;color:#fff;
+  text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.small{font-size:.8rem;color:var(--muted)}
+.rw{font-size:.8rem;text-align:right;white-space:nowrap}
+.btn{display:block;width:100%;background:var(--gold);border:3px solid var(--line);box-shadow:3px 3px 0 #15121f;
+  padding:12px;font-weight:700;margin:8px 0;color:var(--ink)}
+.btn.sec{background:#fff}
+.btn.bad{background:var(--bad);color:#fff}
+.btn.ok{background:var(--ok);color:#fff}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.mbar{height:14px;border:2px solid var(--line);background:#fff;margin:8px 0 4px}
+.mbar>i{display:block;height:100%}
+.meta-h{display:flex;gap:10px;align-items:flex-start}
+.meta-h .cor{width:10px;align-self:stretch;border:2px solid var(--line);flex:none}
+.link{background:none;border:none;color:#3a5bd0;padding:6px 0;font-weight:600}
+.vazio{color:#d8d2ea;text-align:center;padding:24px 10px}
+.resumo{display:flex;justify-content:space-between;color:#fff;font-size:.85rem;margin:2px 2px 8px}
+
+/* barra inferior */
+nav{position:fixed;left:0;right:0;bottom:0;background:#1b1730;border-top:3px solid var(--line);
+  display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;background:none;border:none;color:#a59cc4;padding:10px 0 8px;font-size:.72rem}
+nav button span{display:block;font-size:1.35rem}
+nav button.on{color:var(--gold)}
+
+/* folhas e janelas */
+.sheet{position:fixed;inset:0;background:var(--bg);z-index:10;overflow-y:auto;
+  padding:calc(env(safe-area-inset-top) + 8px) 14px calc(env(safe-area-inset-bottom) + 24px)}
+.sheet .card{margin-top:8px}
+.sheet h3{color:#fff;margin:8px 0}
+.days{display:flex;gap:4px}
+.days button{flex:1;padding:8px 0;border:2px solid var(--line);background:#fff;font-weight:700}
+.days button.on{background:var(--gold)}
+.ck{display:flex;align-items:center;gap:8px;padding:6px 0;font-weight:500}
+.ck input{width:22px;height:22px;flex:none}
+.modal{position:fixed;inset:0;background:rgba(10,8,20,.75);z-index:20;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal .card{width:100%;max-width:380px;text-align:center}
+.modal .big{font-size:2.6rem;margin:4px 0}
+.modal h3{margin:6px 0}
+.catlv{display:flex;align-items:center;gap:8px;margin:8px 0}
+.catlv .nm{width:110px;font-size:.85rem}
+.catlv .bar{flex:1;margin:0;background:#fff}
+.catlv .n{width:44px;text-align:right;font-size:.85rem}
 </style>
 </head>
 <body>
-  <img src="icon-512.png" alt="Baú">
-  <h1>Life UP</h1>
-  <p>Versão de teste ✔</p>
-  <p>Se você está vendo isto no iPhone, a instalação funcionou.</p>
-  <p class="v">v0.0.1</p>
+<div id="app"></div>
+<div id="sheet"></div>
+<div id="modal"></div>
+
 <script>
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+'use strict';
+const VERSAO = '0.1.0';
+
+/* ===================== CONFIGURAÇÕES DO JOGO ===================== */
+const CATS = [
+  {id:1,  nome:'Lazer',                   cor:'#f08c2a'},
+  {id:2,  nome:'Social',                  cor:'#e04848'},
+  {id:3,  nome:'Financeiras',             cor:'#e0b020'},
+  {id:4,  nome:'Saúde',                   cor:'#4cb85c'},
+  {id:5,  nome:'Acadêmicas',              cor:'#4a7fe0'},
+  {id:6,  nome:'Profissionais',           cor:'#2bb8b0'},
+  {id:7,  nome:'Família',                 cor:'#f07ab4'},
+  {id:8,  nome:'Casa',                    cor:'#9a5ce0'},
+  {id:9,  nome:'Desenvolvimento pessoal', cor:'#9a6a3c'},
+  {id:10, nome:'Outros',                  cor:'#8a8a9a'},
+];
+const PRAZOS = {curto:'Curto (até 3 meses)', medio:'Médio (até 6 meses)', longo:'Longo (até 1 ano)', muito:'Muito longo (+1 ano)'};
+const PRAZO_CURTO = {curto:'Curto', medio:'Médio', longo:'Longo', muito:'Muito longo'};
+const DIF = {
+  f:  {nome:'Fácil',         xp:10,  m:2},
+  m:  {nome:'Médio',         xp:25,  m:5},
+  d:  {nome:'Difícil',       xp:50,  m:10},
+  md: {nome:'Muito difícil', xp:100, m:20},
+};
+const BONUS_META = {
+  curto: {xp:150,  m:50,  bau:0},
+  medio: {xp:300,  m:100, bau:0},
+  longo: {xp:600,  m:200, bau:1},
+  muito: {xp:1000, m:400, bau:1},
+};
+const LEVELUP_MOEDAS = 50;
+const EXTRA_MOEDAS = 3, EXTRA_MAX_PAGAS = 3;
+const VIRADA_HORA = 5;
+const SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+/* ===================== DATAS (dia vira às 05h) ===================== */
+const pad = n => String(n).padStart(2,'0');
+const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseKey = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
+const hoje = () => keyOf(new Date(Date.now() - VIRADA_HORA*3600e3));
+const addDias = (k, n) => { const d = parseKey(k); d.setDate(d.getDate()+n); return keyOf(d); };
+const diaSemana = k => parseKey(k).getDay();
+const fmtData = k => { const d = parseKey(k); return `${SEMANA[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth()+1)}`; };
+
+/* ===================== ESTADO ===================== */
+const CHAVE = 'lifeup';
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+function novoEstado(){
+  return { v:1, criado:hoje(), metas:[], quests:[], dias:{}, xp:0, moedas:0, catXp:{}, baus:0,
+           seq:{atual:0, recorde:0, ultimo:addDias(hoje(),-1)} };
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(CHAVE)) || novoEstado(); } catch(e){ S = novoEstado(); }
+const salvar = () => localStorage.setItem(CHAVE, JSON.stringify(S));
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+
+const ui = { tab:'missoes', filtro:'todas', aberta:null };
+const cat = id => CATS.find(c => c.id === +id) || CATS[9];
+const meta = id => S.metas.find(m => m.id === id);
+const quest = id => S.quests.find(q => q.id === id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = n => (Math.round(n*100)/100).toLocaleString('pt-BR');
+
+/* ===================== NÍVEIS ===================== */
+// XP para ir do nível N ao N+1 = 200 + 100 × (N − 1)
+function nivel(xp){
+  let n = 1, need = 200;
+  while (xp >= need){ xp -= need; n++; need = 200 + 100*(n-1); }
+  return { n, dentro:xp, need };
+}
+function bonusSeq(){
+  const a = S.seq.atual;
+  return a >= 100 ? .30 : a >= 30 ? .20 : a >= 7 ? .10 : 0;
+}
+
+/* ===================== AGENDA DO DIA E SEQUÊNCIA ===================== */
+function metaViva(m){ return m && m.status !== 'nao'; }
+function agendadas(k){
+  const wd = diaSemana(k);
+  return S.quests.filter(q => q.ativa && q.criada <= k &&
+    (q.dias.length === 0 || q.dias.includes(wd)) &&
+    q.metas.some(id => metaViva(meta(id))));
+}
+function folga(n){ return Math.max(1, Math.floor(n*0.2)); }
+function avaliarSequencia(){
+  const h = hoje();
+  let d = addDias(S.seq.ultimo, 1);
+  while (d < h){
+    const r = S.dias[d];
+    const n = r ? r.prog.length : agendadas(d).length;
+    const feitas = r ? r.prog.filter(id => r.feitas[id]).length : 0;
+    if (n > 0){
+      if (feitas >= 1 && n - feitas <= folga(n)){
+        S.seq.atual++; S.seq.recorde = Math.max(S.seq.recorde, S.seq.atual);
+      } else S.seq.atual = 0;
+    }
+    d = addDias(d, 1);
+  }
+  S.seq.ultimo = addDias(h, -1);
+}
+function diaDeHoje(){
+  const h = hoje();
+  if (!S.dias[h]) S.dias[h] = { prog: agendadas(h).map(q => q.id), feitas:{}, extras:[] };
+  return S.dias[h];
+}
+function sincronizarHoje(){
+  // após criar/editar/apagar quests, ajusta a lista de hoje (sem mexer no que já foi feito)
+  const r = diaDeHoje(), h = hoje();
+  const devem = new Set(agendadas(h).map(q => q.id));
+  r.prog = r.prog.filter(id => devem.has(id) || r.feitas[id]);
+  devem.forEach(id => { if (!r.prog.includes(id)) r.prog.push(id); });
+}
+let diaAtual = null;
+function checarVirada(){
+  if (diaAtual !== hoje()){ avaliarSequencia(); diaDeHoje(); diaAtual = hoje(); salvar(); render(); }
+}
+
+/* ===================== GANHOS (XP, moedas, baús) ===================== */
+function aplicar(g, sinal=1){
+  S.xp += sinal*g.xp;
+  for (const c in g.cats) S.catXp[c] = (S.catXp[c]||0) + sinal*g.cats[c];
+  S.moedas += sinal*g.moedas;
+  S.baus += sinal*g.baus;
+}
+function somarXP(g, xp, cats){ g.xp += xp; cats.forEach(c => g.cats[c] = (g.cats[c]||0) + xp); }
+function fecharLevel(g){
+  // calcula level up que este ganho provoca e já inclui as recompensas
+  const antes = nivel(S.xp).n, depois = nivel(S.xp + g.xp).n;
+  const lv = Math.max(0, depois - antes);
+  g.moedas += lv*LEVELUP_MOEDAS; g.baus += lv; g.lv = lv; g.nivelNovo = depois;
+  return g;
+}
+const ganhoVazio = () => ({xp:0, cats:{}, moedas:0, baus:0, lv:0});
+function bonusMeta(g, m){
+  const b = BONUS_META[m.prazo];
+  somarXP(g, b.xp, [m.cat]); g.moedas += b.m; g.baus += b.bau;
+}
+
+/* ===================== AÇÕES ===================== */
+async function concluirQuest(id){
+  const q = quest(id), r = diaDeHoje();
+  if (!q || r.feitas[id]) return;
+  const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto' && m.status !== 'nao');
+  let valor = 0;
+  if (autos.length){
+    const un = autos[0].unidade ? ` (${autos[0].unidade})` : '';
+    valor = await pedirNumero(`Quanto foi?${un}`, q.valor || 1, `Soma em: ${autos.map(m=>esc(m.titulo)).join(', ')}`);
+    if (valor === null) return;
+  }
+  const g = ganhoVazio();
+  const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
+  const xpQuest = Math.round(DIF[q.dif].xp * (1 + bonusSeq()));
+  somarXP(g, xpQuest, cats);
+  g.moedas += DIF[q.dif].m;
+  const concl = [];
+  autos.forEach(m => {
+    m.progresso += valor;
+    if (m.status === 'ativa' && m.progresso >= m.alvo){ m.status = 'cumprida'; m.concluida = hoje(); bonusMeta(g, m); concl.push(m.id); }
+  });
+  fecharLevel(g); aplicar(g);
+  r.feitas[id] = { g, xpQuest, valor, metas: autos.map(m=>m.id), concl };
+  salvar(); render();
+  concl.forEach(mid => avisoMeta(meta(mid)));
+  if (g.lv) avisoLevel(g);
+}
+function desfazerQuest(id){
+  const r = diaDeHoje(), e = r.feitas[id];
+  if (!e) return;
+  aplicar(e.g, -1);
+  e.metas.forEach(mid => { const m = meta(mid); if (m) m.progresso -= e.valor; });
+  e.concl.forEach(mid => { const m = meta(mid); if (m && m.status === 'cumprida'){ m.status = 'ativa'; m.concluida = null; } });
+  delete r.feitas[id];
+  salvar(); render();
+}
+function toggleExtra(id){
+  const r = diaDeHoje(), e = r.extras.find(x => x.id === id);
+  if (!e) return;
+  if (!e.feita){
+    const pagas = r.extras.filter(x => x.feita && x.moedas > 0).length;
+    e.moedas = pagas < EXTRA_MAX_PAGAS ? EXTRA_MOEDAS : 0;
+    S.moedas += e.moedas; e.feita = true;
+  } else {
+    S.moedas -= e.moedas; e.moedas = 0; e.feita = false;
+  }
+  salvar(); render();
+}
+function metaManual(id, resultado){
+  const m = meta(id); if (!m) return;
+  if (resultado === 'cumprida'){
+    const g = ganhoVazio(); bonusMeta(g, m); fecharLevel(g); aplicar(g);
+    m.status = 'cumprida'; m.concluida = hoje(); m.ganho = g;
+    salvar(); render(); avisoMeta(m); if (g.lv) avisoLevel(g);
+  } else {
+    m.status = 'nao'; m.concluida = hoje(); sincronizarHoje(); salvar(); render();
+  }
+}
+function reabrirMeta(id){
+  const m = meta(id); if (!m) return;
+  if (m.status === 'cumprida' && m.ganho){ aplicar(m.ganho, -1); m.ganho = null; }
+  m.status = 'ativa'; m.concluida = null;
+  sincronizarHoje(); salvar(); render();
+}
+
+/* ===================== JANELAS ===================== */
+const modalEl = document.getElementById('modal');
+function janela(html, botoes){
+  return new Promise(res => {
+    modalEl.innerHTML = `<div class="modal"><div class="card">${html}
+      ${botoes.map((b,i)=>`<button class="btn ${b.cls||''}" data-i="${i}">${b.txt}</button>`).join('')}</div></div>`;
+    modalEl.querySelectorAll('[data-i]').forEach(el => el.onclick = () => {
+      const b = botoes[+el.dataset.i]; const v = b.val ? b.val() : b.ret;
+      modalEl.innerHTML = ''; res(v);
+    });
+    const inp = modalEl.querySelector('input'); if (inp) setTimeout(()=>inp.focus(), 50);
+  });
+}
+const confirmar = (txt, sim='Confirmar', cls='') => janela(`<h3>${txt}</h3>`, [{txt:sim, cls, ret:true},{txt:'Cancelar', cls:'sec', ret:false}]);
+function pedirNumero(titulo, padrao, sub=''){
+  return janela(`<h3>${titulo}</h3><div class="small">${sub}</div>
+    <input id="pnum" type="number" inputmode="decimal" step="any" value="${padrao}" style="margin-top:10px;text-align:center;font-size:1.3rem">`,
+    [{txt:'Confirmar', val:()=>{ const v = parseFloat(String(document.getElementById('pnum').value).replace(',','.')); return isNaN(v) ? 0 : v; }},
+     {txt:'Cancelar', cls:'sec', ret:null}]);
+}
+let filaAvisos = Promise.resolve();
+const avisar = (html) => { filaAvisos = filaAvisos.then(() => janela(html, [{txt:'Continuar', ret:true}])); };
+function avisoLevel(g){
+  avisar(`<div class="big">⬆️</div><h3 class="px">LEVEL UP!</h3><p>Você chegou ao <b>nível ${g.nivelNovo}</b></p>
+    <p>+${g.lv*LEVELUP_MOEDAS} 🪙 · +${g.lv} baú${g.lv>1?'s':''} surpresa 🎁</p>
+    <p class="small">Os baús ficam guardados no Perfil e poderão ser abertos na próxima fase do app.</p>`);
+}
+function avisoMeta(m){
+  const b = BONUS_META[m.prazo];
+  avisar(`<div class="big">🏆</div><h3 class="px">META CONCLUÍDA!</h3><p><b>${esc(m.titulo)}</b></p>
+    <p>+${b.xp} XP · +${b.m} 🪙${b.bau?' · +1 baú 🎁':''}</p>`);
+}
+
+/* ===================== PERSONAGEM (pixel art) ===================== */
+const PERS = [
+  "................",
+  ".....KKKKKK.....",
+  "....KHHHHHHK....",
+  "...KHHHHHHHHK...",
+  "...KHSSSSSSHK...",
+  "...KSSESSESSK...",
+  "...KSSSSSSSSK...",
+  "....KSSMMSSK....",
+  ".....KKSSKK.....",
+  "....KBBBBBBK....",
+  "...KSBBWWBBSK...",
+  "...KSBBBBBBSK...",
+  "....KJJJJJJK....",
+  "....KJJKKJJK....",
+  "....KJJKKJJK....",
+  "....KKKKKKKK....",
+];
+const PCOR = {K:'#231a2e',H:'#1a1a1a',S:'#f6d2b0',E:'#111',M:'#c86a5a',B:'#3a72d8',W:'#f0c83c',J:'#3c5a8c'};
+function personagemSVG(){
+  let r = '';
+  PERS.forEach((l,y) => [...l].forEach((c,x) => { if (c !== '.') r += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${PCOR[c]}"/>`; }));
+  return `<svg viewBox="0 0 16 16" shape-rendering="crispEdges">${r}</svg>`;
+}
+
+/* ===================== TELAS ===================== */
+const app = document.getElementById('app');
+function topo(){
+  const nv = nivel(S.xp);
+  return `<div class="top">
+    <button class="avatar" data-a="tab" data-id="perfil">${personagemSVG()}<span class="lv px">${nv.n}</span></button>
+    <div class="stats">
+      <div class="linha"><b class="px">Nível ${nv.n}</b><span>🪙 ${S.moedas} · 🔥 ${S.seq.atual}</span></div>
+      <div class="bar"><i style="width:${Math.min(100, nv.dentro/nv.need*100)}%"></i></div>
+      <div class="linha small" style="color:#cfc8e6"><span>${nv.dentro} / ${nv.need} XP</span><span>${bonusSeq()?`bônus sequência +${bonusSeq()*100}%`:''}</span></div>
+    </div>
+    <button class="iconbtn" data-a="tab" data-id="config">⚙️</button>
+  </div>`;
+}
+function tagsMetas(ids){
+  return ids.map(meta).filter(Boolean).map(m => `<span class="tag" style="background:${cat(m.cat).cor}">${esc(m.titulo)}</span>`).join('');
+}
+function telaMissoes(){
+  const r = diaDeHoje();
+  const qs = r.prog.map(quest).filter(Boolean);
+  const feitas = qs.filter(q => r.feitas[q.id]).length;
+  const n = qs.length;
+  let status = '';
+  if (n){
+    const falta = n - feitas, f = folga(n);
+    status = (feitas >= 1 && falta <= f) ? '✅ Dia garantido para a sequência' : `Faltam ${Math.max(1, falta - f)} para garantir a sequência`;
+  }
+  let h = `<div class="sub">
+    <button class="chip on">Diária</button><button class="chip off">Semanal</button>
+    <button class="chip off">Mensal</button><button class="chip off">Bimestral</button></div>
+    <div class="resumo"><span>${fmtData(hoje())}</span><span>${feitas}/${n} feitas</span></div>`;
+  if (!S.metas.length){
+    h += `<div class="card"><b>Bem-vindo ao Life UP!</b><p>Comece criando uma meta na aba <b>Metas</b>. Depois adicione quests a ela: as quests do dia aparecem aqui.</p>
+      <button class="btn" data-a="tab" data-id="metas">Ir para Metas</button></div>`;
+  } else if (!n){
+    h += `<div class="card vazio" style="color:var(--muted)">Nenhuma quest para hoje.<br><span class="small">Adicione quests nas suas metas (aba Metas).</span></div>`;
+  } else {
+    h += `<div class="card">${qs.map(q => {
+      const e = r.feitas[q.id];
+      const xp = e ? (e.xpQuest ?? e.g.xp) : Math.round(DIF[q.dif].xp*(1+bonusSeq()));
+      return `<div class="quest">
+        <button class="check ${e?'on':''}" data-a="${e?'desfazer':'concluir'}" data-id="${q.id}">${e?'✓':''}</button>
+        <div class="qtxt ${e?'done':''}"><b>${esc(q.titulo)}</b>${tagsMetas(q.metas)}</div>
+        <div class="rw">${DIF[q.dif].nome}<br><b>+${xp} XP</b></div></div>`;
+    }).join('')}<div class="small" style="margin-top:8px">${status}</div></div>`;
+  }
+  // extras
+  const pagas = r.extras.filter(x => x.feita && x.moedas > 0).length;
+  h += `<h2>Quests extras <span class="small" style="color:#cfc8e6">(imprevistos do dia · só moedas)</span></h2><div class="card">`;
+  h += r.extras.length ? r.extras.map(x => `<div class="quest">
+      <button class="check ${x.feita?'on':''}" data-a="extra" data-id="${x.id}">${x.feita?'✓':''}</button>
+      <div class="qtxt ${x.feita?'done':''}"><b>${esc(x.titulo)}</b>${x.meta?tagsMetas([x.meta]):''}</div>
+      <div class="rw">${x.feita ? (x.moedas?`+${x.moedas} 🪙`:'sem moedas') : (pagas<EXTRA_MAX_PAGAS?`+${EXTRA_MOEDAS} 🪙`:'sem moedas')}<br>
+      <button class="link" data-a="apagarExtra" data-id="${x.id}">apagar</button></div></div>`).join('')
+    : `<div class="small">Nenhuma ainda hoje. Valem ${EXTRA_MOEDAS} 🪙 cada, até ${EXTRA_MAX_PAGAS} por dia.</div>`;
+  h += `<button class="btn sec" data-a="novaExtra">+ Quest extra</button></div>`;
+  return h;
+}
+function cardMeta(m){
+  const c = cat(m.cat);
+  const qs = S.quests.filter(q => q.metas.includes(m.id));
+  const aberta = ui.aberta === m.id;
+  let corpo = '';
+  if (m.tipo === 'auto'){
+    const p = m.alvo ? Math.min(100, m.progresso/m.alvo*100) : 0;
+    corpo = `<div class="mbar"><i style="width:${p}%;background:${c.cor}"></i></div>
+      <div class="small">${num(m.progresso)} / ${num(m.alvo)} ${esc(m.unidade||'')} · ${Math.floor(m.alvo? m.progresso/m.alvo*100 : 0)}%</div>`;
+  }
+  let st = '';
+  if (m.status === 'cumprida') st = `<span class="tag" style="background:var(--ok)">✓ Completa</span>`;
+  if (m.status === 'nao') st = `<span class="tag" style="background:#777">Não cumprida</span>`;
+  let h = `<div class="card"><div class="meta-h"><div class="cor" style="background:${c.cor}"></div><div style="flex:1;min-width:0">
+    <b>${esc(m.titulo)}</b> ${st}
+    <div class="small">${c.nome} · ${PRAZO_CURTO[m.prazo]} · ${m.tipo==='auto'?'Progresso':'Marco'}</div>
+    ${corpo}
+    ${m.obs ? `<div class="small" style="margin-top:4px">📝 ${esc(m.obs)}</div>`:''}
+  </div></div>`;
+  if (m.tipo === 'manual' && m.status === 'ativa'){
+    h += `<div class="row"><button class="btn ok" data-a="cumprida" data-id="${m.id}">Cumprida</button>
+      <button class="btn sec" data-a="naoCumprida" data-id="${m.id}">Não cumprida</button></div>`;
+  }
+  h += `<button class="link" data-a="abrir" data-id="${m.id}">${aberta?'▾':'▸'} Quests (${qs.length})</button>`;
+  if (aberta){
+    h += qs.map(q => `<div class="quest"><div class="qtxt"><b>${esc(q.titulo)}</b>
+        <span class="small">${DIF[q.dif].nome} · ${q.dias.length? q.dias.map(d=>SEMANA[d]).join(', ') : 'todos os dias'}${q.valor && m.tipo==='auto' ? ` · vale ${num(q.valor)} ${esc(m.unidade||'')}`:''}</span></div>
+        <button class="link" data-a="editarQuest" data-id="${q.id}">editar</button></div>`).join('');
+    h += `<div class="row"><button class="btn sec" data-a="novaQuest" data-id="${m.id}">+ Quest</button>
+      <button class="btn sec" data-a="editarMeta" data-id="${m.id}">Editar meta</button></div>`;
+    if (m.status !== 'ativa') h += `<button class="btn sec" data-a="reabrir" data-id="${m.id}">Reabrir meta</button>`;
+  }
+  return h + `</div>`;
+}
+function telaMetas(){
+  const filtros = {todas:'Todas', ...PRAZO_CURTO};
+  let h = `<div class="sub">${Object.entries(filtros).map(([k,v]) =>
+    `<button class="chip ${ui.filtro===k?'on':''}" data-a="filtro" data-id="${k}">${v}</button>`).join('')}</div>`;
+  const lista = S.metas.filter(m => ui.filtro === 'todas' || m.prazo === ui.filtro);
+  const ordem = {ativa:0, cumprida:1, nao:2};
+  lista.sort((a,b) => ordem[a.status]-ordem[b.status]);
+  h += lista.length ? lista.map(cardMeta).join('') : `<div class="vazio">Nenhuma meta aqui ainda.</div>`;
+  h += `<button class="btn" data-a="novaMeta">+ Nova meta</button>`;
+  return h;
+}
+function telaEmBreve(nome, txt){
+  return `<h2>${nome}</h2><div class="card"><b>Em breve</b><p>${txt}</p></div>`;
+}
+function telaLoja(){
+  return `<h2>Loja</h2><div class="card"><p>Você tem <b>${S.moedas} 🪙</b>.</p>
+    <p class="small">A loja (escudo, pergaminho, dado e recompensas da vida real) chega na próxima fase. Suas moedas já ficam guardadas.</p></div>`;
+}
+function telaPerfil(){
+  const nv = nivel(S.xp);
+  const completas = S.metas.filter(m => m.status === 'cumprida').length;
+  let h = `<h2>Perfil</h2><div class="card" style="text-align:center">
+    <div style="width:120px;height:120px;margin:0 auto;border:3px solid var(--line);background:#dfe9f5">${personagemSVG()}</div>
+    <div class="px" style="margin-top:8px;font-size:1.1rem">Nível ${nv.n}</div>
+    <div class="small">Classe: Residente R3 de Pediatria</div>
+    <div class="bar" style="background:#fff"><i style="width:${nv.dentro/nv.need*100}%"></i></div>
+    <div class="small">${nv.dentro} / ${nv.need} XP · ${S.xp} XP no total</div></div>
+    <div class="card">
+      <div class="row" style="text-align:center">
+        <div><div class="px" style="font-size:1.3rem">🔥 ${S.seq.atual}</div><div class="small">sequência</div></div>
+        <div><div class="px" style="font-size:1.3rem">🏅 ${S.seq.recorde}</div><div class="small">recorde</div></div>
+        <div><div class="px" style="font-size:1.3rem">🏆 ${completas}</div><div class="small">metas completas</div></div>
+      </div>
+      <div class="row" style="text-align:center;margin-top:10px">
+        <div><div class="px" style="font-size:1.3rem">🪙 ${S.moedas}</div><div class="small">moedas</div></div>
+        <div><div class="px" style="font-size:1.3rem">🎁 ${S.baus}</div><div class="small">baús guardados</div></div>
+      </div></div>
+    <h2>Nível por categoria</h2><div class="card">`;
+  h += CATS.map(c => { const v = nivel(S.catXp[c.id]||0);
+    return `<div class="catlv"><span class="nm">${c.nome}</span><div class="bar"><i style="width:${v.dentro/v.need*100}%;background:${c.cor}"></i></div><span class="n px">Nv ${v.n}</span></div>`; }).join('');
+  return h + `</div>`;
+}
+function telaConfig(){
+  return `<h2>Configurações</h2>
+    <div class="card"><b>Backup</b><p class="small">Seus dados ficam só neste celular. Exporte um backup de vez em quando (ex.: toda semana) e guarde em Arquivos/iCloud.</p>
+      <button class="btn" data-a="exportar">Exportar backup</button>
+      <button class="btn sec" data-a="importar">Importar backup</button>
+      <input type="file" id="arqImport" accept=".json,application/json" style="display:none"></div>
+    <div class="card"><b>Virada do dia</b><p class="small">O dia vira às ${pad(VIRADA_HORA)}h (o que você marcar de madrugada conta para o dia anterior).</p></div>
+    <div class="card"><b>Zona de perigo</b><p class="small">Apaga metas, quests, XP, moedas e histórico. Use para limpar os testes.</p>
+      <button class="btn bad" data-a="apagarTudo">Apagar tudo</button></div>
+    <div class="small" style="color:#a59cc4;text-align:center">Life UP v${VERSAO}</div>`;
+}
+function render(){
+  let corpo = '';
+  if (ui.tab === 'missoes') corpo = telaMissoes();
+  else if (ui.tab === 'metas') corpo = telaMetas();
+  else if (ui.tab === 'calendario') corpo = telaEmBreve('Calendário', 'O calendário com o resultado de cada dia e seus eventos chega na próxima fase. O histórico de hoje em diante já está sendo guardado.');
+  else if (ui.tab === 'loja') corpo = telaLoja();
+  else if (ui.tab === 'perfil') corpo = telaPerfil();
+  else if (ui.tab === 'config') corpo = telaConfig();
+  const nb = (id, ic, txt) => `<button class="${ui.tab===id?'on':''}" data-a="tab" data-id="${id}"><span>${ic}</span>${txt}</button>`;
+  app.innerHTML = topo() + `<main>${corpo}</main>
+    <nav>${nb('missoes','⚔️','Missões')}${nb('metas','🎯','Metas')}${nb('calendario','📅','Calendário')}${nb('loja','🛒','Loja')}</nav>`;
+}
+
+/* ===================== FORMULÁRIOS ===================== */
+const sheetEl = document.getElementById('sheet');
+const fecharSheet = () => { sheetEl.innerHTML = ''; };
+function formMeta(id){
+  const m = id ? meta(id) : {titulo:'', cat:4, prazo:'longo', tipo:'auto', alvo:'', unidade:'', obs:''};
+  sheetEl.innerHTML = `<div class="sheet"><h3>${id?'Editar meta':'Nova meta'}</h3><div class="card">
+    <label>Título</label><input id="fTitulo" value="${esc(m.titulo)}" placeholder="Ex.: Juntar R$ 12 mil">
+    <label>Categoria</label><select id="fCat">${CATS.map(c=>`<option value="${c.id}" ${c.id==m.cat?'selected':''}>${c.nome}</option>`).join('')}</select>
+    <label>Prazo</label><select id="fPrazo">${Object.entries(PRAZOS).map(([k,v])=>`<option value="${k}" ${k===m.prazo?'selected':''}>${v}</option>`).join('')}</select>
+    <label>Tipo de conclusão</label>
+    <select id="fTipo"><option value="auto" ${m.tipo==='auto'?'selected':''}>Progresso (tem um alvo; completa sozinha)</option>
+      <option value="manual" ${m.tipo==='manual'?'selected':''}>Marco (eu marco cumprida / não cumprida)</option></select>
+    <div id="fAlvoBox"><div class="row">
+      <div><label>Alvo</label><input id="fAlvo" type="number" inputmode="decimal" step="any" value="${m.alvo}" placeholder="12000"></div>
+      <div><label>Unidade</label><input id="fUn" value="${esc(m.unidade||'')}" placeholder="R$, livros…"></div></div></div>
+    <label>Observações</label><textarea id="fObs" placeholder="Datas, detalhes…">${esc(m.obs)}</textarea>
+    <button class="btn" data-a="salvarMeta" data-id="${id||''}">Salvar</button>
+    ${id?`<button class="btn bad" data-a="apagarMeta" data-id="${id}">Apagar meta</button>`:''}
+    <button class="btn sec" data-a="fechar">Cancelar</button></div></div>`;
+  const tipo = document.getElementById('fTipo'), box = document.getElementById('fAlvoBox');
+  const upd = () => box.style.display = tipo.value === 'auto' ? '' : 'none';
+  tipo.onchange = upd; upd();
+}
+function salvarMeta(id){
+  const v = x => document.getElementById(x).value;
+  const titulo = v('fTitulo').trim();
+  if (!titulo) return janela('<h3>Dê um título à meta</h3>', [{txt:'Ok', ret:1}]);
+  const tipo = v('fTipo');
+  const alvo = parseFloat(String(v('fAlvo')).replace(',','.'));
+  if (tipo === 'auto' && !(alvo > 0)) return janela('<h3>Informe o alvo da meta</h3><p class="small">Ex.: 12000 (R$) ou 12 (livros).</p>', [{txt:'Ok', ret:1}]);
+  const dados = { titulo, cat:+v('fCat'), prazo:v('fPrazo'), tipo, alvo: tipo==='auto'?alvo:0, unidade:v('fUn').trim(), obs:v('fObs').trim() };
+  if (id){
+    const m = meta(id); Object.assign(m, dados);
+    if (m.tipo === 'auto' && m.status === 'ativa' && m.progresso >= m.alvo){ /* alvo reduzido: completa no próximo progresso */ }
+  } else {
+    const m = { id:uid(), ...dados, progresso:0, status:'ativa', criada:hoje(), concluida:null };
+    S.metas.push(m); ui.aberta = m.id;
+  }
+  sincronizarHoje(); salvar(); fecharSheet(); render();
+}
+let formDias = [];
+function formQuest(id, metaId){
+  const q = id ? quest(id) : {titulo:'', metas:[metaId], dif:'m', dias:[], valor:''};
+  formDias = [...q.dias];
+  const metas = S.metas.filter(m => m.status !== 'nao' || q.metas.includes(m.id));
+  sheetEl.innerHTML = `<div class="sheet"><h3>${id?'Editar quest':'Nova quest'}</h3><div class="card">
+    <label>Título</label><input id="qTitulo" value="${esc(q.titulo)}" placeholder="Ex.: Ler 20 páginas">
+    <label>Dificuldade</label><select id="qDif">${Object.entries(DIF).map(([k,d])=>`<option value="${k}" ${k===q.dif?'selected':''}>${d.nome} · ${d.xp} XP · ${d.m} 🪙</option>`).join('')}</select>
+    <label>Dias</label><div class="days" id="qDias">${SEMANA.map((s,i)=>`<button data-d="${i}" class="${formDias.includes(i)?'on':''}">${s[0]}</button>`).join('')}</div>
+    <div class="small" id="qDiasTxt"></div>
+    <label>Ligada às metas</label>${metas.map(m=>`<label class="ck"><input type="checkbox" value="${m.id}" ${q.metas.includes(m.id)?'checked':''}>
+      <span class="tag" style="background:${cat(m.cat).cor}">${esc(m.titulo)}</span></label>`).join('')}
+    <div id="qValorBox"><label>Valor sugerido (quanto soma na meta)</label>
+      <input id="qValor" type="number" inputmode="decimal" step="any" value="${q.valor}" placeholder="1"></div>
+    <button class="btn" data-a="salvarQuest" data-id="${id||''}">Salvar</button>
+    ${id?`<button class="btn bad" data-a="apagarQuest" data-id="${id}">Apagar quest</button>`:''}
+    <button class="btn sec" data-a="fechar">Cancelar</button></div></div>`;
+  const updDias = () => {
+    document.querySelectorAll('#qDias button').forEach(b => b.classList.toggle('on', formDias.includes(+b.dataset.d)));
+    document.getElementById('qDiasTxt').textContent = formDias.length ? '' : 'Nenhum dia marcado = todos os dias';
+  };
+  document.querySelectorAll('#qDias button').forEach(b => b.onclick = () => {
+    const d = +b.dataset.d; formDias = formDias.includes(d) ? formDias.filter(x=>x!==d) : [...formDias, d].sort(); updDias();
+  });
+  const updValor = () => {
+    const sel = [...document.querySelectorAll('.sheet .ck input:checked')].map(i => meta(i.value));
+    document.getElementById('qValorBox').style.display = sel.some(m => m && m.tipo==='auto') ? '' : 'none';
+  };
+  document.querySelectorAll('.sheet .ck input').forEach(i => i.onchange = updValor);
+  updDias(); updValor();
+}
+function salvarQuest(id){
+  const titulo = document.getElementById('qTitulo').value.trim();
+  const metas = [...document.querySelectorAll('.sheet .ck input:checked')].map(i => i.value);
+  if (!titulo) return janela('<h3>Dê um título à quest</h3>', [{txt:'Ok', ret:1}]);
+  if (!metas.length) return janela('<h3>Ligue a quest a pelo menos uma meta</h3>', [{txt:'Ok', ret:1}]);
+  const valor = parseFloat(String(document.getElementById('qValor').value).replace(',','.')) || 1;
+  const dados = { titulo, metas, dif:document.getElementById('qDif').value, dias:[...formDias], valor };
+  if (id) Object.assign(quest(id), dados);
+  else S.quests.push({ id:uid(), ...dados, ativa:true, criada:hoje() });
+  sincronizarHoje(); salvar(); fecharSheet(); render();
+}
+function formExtra(){
+  const metas = S.metas.filter(m => m.status !== 'nao');
+  sheetEl.innerHTML = `<div class="sheet"><h3>Quest extra</h3><div class="card">
+    <p class="small">Para imprevistos do dia. Vale ${EXTRA_MOEDAS} 🪙 (até ${EXTRA_MAX_PAGAS} por dia), não dá XP e não conta para a sequência.</p>
+    <label>Título</label><input id="xTitulo" placeholder="Ex.: Resolver pendência do banco">
+    <label>Ligar a uma meta? (opcional)</label><select id="xMeta"><option value="">Nenhuma</option>
+      ${metas.map(m=>`<option value="${m.id}">${esc(m.titulo)}</option>`).join('')}</select>
+    <button class="btn" data-a="salvarExtra">Adicionar</button>
+    <button class="btn sec" data-a="fechar">Cancelar</button></div></div>`;
+}
+
+/* ===================== BACKUP ===================== */
+async function exportar(){
+  const nome = `lifeup-backup-${hoje()}.json`;
+  const txt = JSON.stringify(S);
+  const arq = new File([txt], nome, {type:'application/json'});
+  try {
+    if (navigator.canShare && navigator.canShare({files:[arq]})){ await navigator.share({files:[arq], title:'Backup Life UP'}); return; }
+  } catch(e){ if (e.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(arq); a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+}
+function importar(){
+  const inp = document.getElementById('arqImport');
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    try {
+      const dados = JSON.parse(await f.text());
+      if (!dados || dados.v !== 1 || !Array.isArray(dados.metas)) throw 0;
+      if (!(await confirmar('Substituir todos os dados atuais por este backup?', 'Substituir', 'bad'))) return;
+      S = dados; avaliarSequencia(); diaDeHoje(); salvar(); render();
+      janela('<h3>Backup importado ✔</h3>', [{txt:'Ok', ret:1}]);
+    } catch(e){ janela('<h3>Arquivo inválido</h3><p class="small">Escolha um arquivo de backup do Life UP (.json).</p>', [{txt:'Ok', ret:1}]); }
+    inp.value = '';
+  };
+  inp.click();
+}
+
+/* ===================== CLIQUES ===================== */
+const acoes = {
+  tab: id => { ui.tab = id; render(); window.scrollTo(0,0); },
+  filtro: id => { ui.filtro = id; render(); },
+  abrir: id => { ui.aberta = ui.aberta === id ? null : id; render(); },
+  concluir: concluirQuest,
+  desfazer: async id => { if (await confirmar('Desmarcar esta quest?', 'Desmarcar')) desfazerQuest(id); },
+  extra: toggleExtra,
+  novaExtra: formExtra,
+  salvarExtra: () => {
+    const t = document.getElementById('xTitulo').value.trim(); if (!t) return;
+    diaDeHoje().extras.push({ id:uid(), titulo:t, meta:document.getElementById('xMeta').value || null, feita:false, moedas:0 });
+    salvar(); fecharSheet(); render();
+  },
+  apagarExtra: async id => {
+    if (!(await confirmar('Apagar esta quest extra?', 'Apagar', 'bad'))) return;
+    const r = diaDeHoje(), x = r.extras.find(e => e.id === id);
+    if (x && x.feita) S.moedas -= x.moedas;
+    r.extras = r.extras.filter(e => e.id !== id); salvar(); render();
+  },
+  novaMeta: () => formMeta(null),
+  editarMeta: id => formMeta(id),
+  salvarMeta,
+  apagarMeta: async id => {
+    if (!(await confirmar('Apagar esta meta? As quests ligadas só a ela também serão apagadas. O XP já ganho continua.', 'Apagar', 'bad'))) return;
+    S.metas = S.metas.filter(m => m.id !== id);
+    S.quests.forEach(q => q.metas = q.metas.filter(x => x !== id));
+    S.quests = S.quests.filter(q => q.metas.length);
+    sincronizarHoje(); salvar(); fecharSheet(); render();
+  },
+  novaQuest: id => formQuest(null, id),
+  editarQuest: id => formQuest(id),
+  salvarQuest,
+  apagarQuest: async id => {
+    if (!(await confirmar('Apagar esta quest? O XP já ganho continua.', 'Apagar', 'bad'))) return;
+    S.quests = S.quests.filter(q => q.id !== id);
+    sincronizarHoje(); salvar(); fecharSheet(); render();
+  },
+  cumprida: async id => { if (await confirmar('Marcar esta meta como cumprida?', 'Cumprida', 'ok')) metaManual(id, 'cumprida'); },
+  naoCumprida: async id => { if (await confirmar('Marcar como não cumprida? O XP e as moedas das quests continuam; só o bônus de conclusão é perdido.', 'Não cumprida')) metaManual(id, 'nao'); },
+  reabrir: async id => { if (await confirmar('Reabrir esta meta? Se ela deu bônus de conclusão, ele é desfeito.', 'Reabrir')) reabrirMeta(id); },
+  fechar: fecharSheet,
+  exportar, importar,
+  apagarTudo: async () => {
+    if (!(await confirmar('Apagar TUDO? Isso não pode ser desfeito (a não ser que você tenha um backup).', 'Apagar tudo', 'bad'))) return;
+    S = novoEstado(); diaDeHoje(); salvar(); ui.tab = 'missoes'; render();
+  },
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-a]');
+  if (!el) return;
+  const f = acoes[el.dataset.a];
+  if (f) f(el.dataset.id || null, el);
+});
+
+/* ===================== INÍCIO ===================== */
+checarVirada();
+render();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checarVirada(); });
+setInterval(checarVirada, 60000);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 </body>
 </html>
