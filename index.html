@@ -12,6 +12,8 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="manifest" href="manifest.json">
 <style>
+@font-face{font-family:'Pixelify Sans';src:url(fonts/pixelify-sans-latin-400-normal.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Pixelify Sans';src:url(fonts/pixelify-sans-latin-700-normal.woff2) format('woff2');font-weight:700;font-display:swap}
 :root{
   --bg:#2c2846; --bg2:#3a3560; --card:#f4f0e6; --ink:#231a2e; --muted:#6b6280;
   --gold:#f0c83c; --gold2:#c9a020; --ok:#4cb85c; --bad:#e04848; --line:#231a2e;
@@ -20,9 +22,9 @@
 button,input,select,textarea,label{touch-action:manipulation}
 .ic{vertical-align:-0.2em;display:inline-block}
 html,body{margin:0;background:var(--bg);color:var(--ink);
-  font-family:-apple-system,system-ui,sans-serif;font-size:16px}
+  font-family:'Pixelify Sans',-apple-system,system-ui,sans-serif;font-size:17px}
 body{padding-top:env(safe-area-inset-top);padding-bottom:calc(72px + env(safe-area-inset-bottom))}
-.px{font-family:"Courier New",ui-monospace,monospace;font-weight:700;letter-spacing:.5px}
+.px{font-weight:700;letter-spacing:.5px}
 button{font:inherit;cursor:pointer}
 input,select,textarea{font:inherit;font-size:16px;width:100%;padding:10px;border:3px solid var(--line);
   background:#fff;color:var(--ink);border-radius:10px;-webkit-appearance:none;appearance:none}
@@ -47,7 +49,7 @@ h2{color:#fff;margin:14px 2px 8px;font-size:1.1rem}
 .card{background:var(--card);border:3px solid var(--line);box-shadow:4px 4px 0 #15121f;
   margin:0 0 12px;padding:12px;border-radius:14px}
 .sub{display:flex;gap:6px;overflow-x:auto;margin:6px 0 10px}
-.chip{background:var(--bg2);color:#fff;border:2px solid var(--line);padding:6px 12px;white-space:nowrap;font-size:.85rem;border-radius:10px}
+.chip{background:var(--bg2);color:#fff;border:2px solid var(--line);padding:6px 8px;white-space:nowrap;font-size:.8rem;border-radius:10px;flex:1 0 auto}
 .chip.on{background:var(--gold);color:var(--ink)}
 .chip.off{opacity:.45}
 .quest{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:2px dashed #cfc7b4}
@@ -112,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.1.1';
+const VERSAO = '0.2.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -145,6 +147,8 @@ const LEVELUP_MOEDAS = 50;
 const EXTRA_MOEDAS = 3, EXTRA_MAX_PAGAS = 3;
 const VIRADA_HORA = 5;
 const SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const FREQ = {dias:'Diária (dias da semana)', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual'};
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 
 /* ===================== DATAS (dia vira às 05h) ===================== */
 const pad = n => String(n).padStart(2,'0');
@@ -153,6 +157,17 @@ const parseKey = k => { const [y,m,d] = k.split('-').map(Number); return new Dat
 const hoje = () => keyOf(new Date(Date.now() - VIRADA_HORA*3600e3));
 const addDias = (k, n) => { const d = parseKey(k); d.setDate(d.getDate()+n); return keyOf(d); };
 const diaSemana = k => parseKey(k).getDay();
+const fmtCurta = k => { const d = parseKey(k); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`; };
+const diasEntre = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 864e5);
+function periodo(freq, k = hoje()){
+  const d = parseKey(k), y = d.getFullYear(), m = d.getMonth();
+  if (freq === 'semanal'){ const ini = addDias(k, -((d.getDay()+6)%7)), fim = addDias(ini, 6);
+    return {key:'S'+ini, ini, fim, nome:`Semana de ${fmtCurta(ini)} a ${fmtCurta(fim)}`}; }
+  if (freq === 'mensal') return {key:`M${y}-${m}`, ini:keyOf(new Date(y,m,1)), fim:keyOf(new Date(y,m+1,0)), nome:`${MESES[m]} de ${y}`};
+  if (freq === 'bimestral'){ const b = Math.floor(m/2);
+    return {key:`B${y}-${b}`, ini:keyOf(new Date(y,2*b,1)), fim:keyOf(new Date(y,2*b+2,0)), nome:`${MESES[2*b]} e ${MESES[2*b+1]} de ${y}`}; }
+  return {key:`A${y}`, ini:`${y}-01-01`, fim:`${y}-12-31`, nome:`Ano de ${y}`};
+}
 const fmtData = k => { const d = parseKey(k); return `${SEMANA[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth()+1)}`; };
 
 /* ===================== ESTADO ===================== */
@@ -167,7 +182,8 @@ try { S = JSON.parse(localStorage.getItem(CHAVE)) || novoEstado(); } catch(e){ S
 const salvar = () => localStorage.setItem(CHAVE, JSON.stringify(S));
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
-const ui = { tab:'missoes', filtro:'todas', aberta:null };
+const ui = { tab:'missoes', sub:'dias', filtro:'todas', aberta:null };
+if (!S.per) S.per = {};
 const cat = id => CATS.find(c => c.id === +id) || CATS[9];
 const meta = id => S.metas.find(m => m.id === id);
 const quest = id => S.quests.find(q => q.id === id);
@@ -190,7 +206,7 @@ function bonusSeq(){
 function metaViva(m){ return m && m.status !== 'nao'; }
 function agendadas(k){
   const wd = diaSemana(k);
-  return S.quests.filter(q => q.ativa && q.criada <= k &&
+  return S.quests.filter(q => q.ativa && q.criada <= k && (q.freq||'dias') === 'dias' &&
     (q.dias.length === 0 || q.dias.includes(wd)) &&
     q.metas.some(id => metaViva(meta(id))));
 }
@@ -225,7 +241,7 @@ function sincronizarHoje(){
 }
 let diaAtual = null;
 function checarVirada(){
-  if (diaAtual !== hoje()){ avaliarSequencia(); diaDeHoje(); diaAtual = hoje(); salvar(); render(); }
+  if (diaAtual !== hoje()){ avaliarSequencia(); fecharPeriodos(); diaDeHoje(); diaAtual = hoje(); salvar(); render(); }
 }
 
 /* ===================== GANHOS (XP, moedas, baús) ===================== */
@@ -312,6 +328,68 @@ function reabrirMeta(id){
   if (m.status === 'cumprida' && m.ganho){ aplicar(m.ganho, -1); m.ganho = null; }
   m.status = 'ativa'; m.concluida = null;
   sincronizarHoje(); salvar(); render();
+}
+
+/* ===================== QUESTS PERIÓDICAS ===================== */
+function perDe(q){
+  const p = periodo(q.freq), k = q.id + '|' + p.key;
+  if (!S.per[k]) S.per[k] = { qid:q.id, fim:p.fim, feito:0, regs:[], completa:false, fechado:false };
+  return S.per[k];
+}
+async function registrar(id){
+  const q = quest(id); if (!q) return;
+  const e = perDe(q);
+  const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto' && m.status !== 'nao');
+  const falta = Math.max(0, q.valor - e.feito);
+  const padrao = autos.length ? (falta || q.valor) : 1;
+  const un = autos.length && autos[0].unidade ? ` (${esc(autos[0].unidade)})` : (autos.length ? '' : ' (vezes)');
+  const v = await pedirNumero(`Quanto foi?${un}`, padrao, `${esc(q.titulo)}${autos.length?` · soma em: ${autos.map(m=>esc(m.titulo)).join(', ')}`:''}`);
+  if (v === null || v === 0) return;
+  const g = ganhoVazio(), reg = { v, metas: autos.map(m=>m.id), concl:[], completou:false };
+  e.feito += v;
+  autos.forEach(m => {
+    m.progresso += v;
+    if (m.status === 'ativa' && m.progresso >= m.alvo){ m.status = 'cumprida'; m.concluida = hoje(); bonusMeta(g, m); reg.concl.push(m.id); }
+  });
+  if (!e.completa && e.feito >= q.valor){
+    const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
+    reg.xpQuest = Math.round(DIF[q.dif].xp * (1 + bonusSeq()));
+    somarXP(g, reg.xpQuest, cats); g.moedas += DIF[q.dif].m;
+    e.completa = true; reg.completou = true;
+  }
+  fecharLevel(g); aplicar(g); reg.g = g; e.regs.push(reg);
+  salvar(); render();
+  if (reg.completou) avisar(`<div class="big">${ic('check','56px').replace(/#f4f0e6/g,'#4cb85c')}</div><h3>Quest completa!</h3><p><b>${esc(q.titulo)}</b></p><p>+${reg.xpQuest} XP · +${DIF[q.dif].m} ${ic('moeda')}</p>`);
+  reg.concl.forEach(mid => avisoMeta(meta(mid)));
+  if (g.lv) avisoLevel(g);
+}
+function desfazerRegistro(id){
+  const q = quest(id); if (!q) return;
+  const e = perDe(q), reg = e.regs.pop(); if (!reg) return;
+  aplicar(reg.g, -1);
+  e.feito -= reg.v;
+  reg.metas.forEach(mid => { const m = meta(mid); if (m) m.progresso -= reg.v; });
+  reg.concl.forEach(mid => { const m = meta(mid); if (m && m.status === 'cumprida'){ m.status = 'ativa'; m.concluida = null; } });
+  if (reg.completou) e.completa = false;
+  salvar(); render();
+}
+function fecharPeriodos(){
+  // período terminou sem completar: XP proporcional ao que foi feito, sem moedas
+  const h = hoje();
+  for (const k in S.per){
+    const e = S.per[k];
+    if (e.fechado || e.fim >= h) continue;
+    e.fechado = true;
+    const q = quest(e.qid);
+    if (e.completa || !q || e.feito <= 0) continue;
+    const frac = Math.min(1, e.feito / q.valor);
+    const g = ganhoVazio();
+    const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
+    e.parcial = Math.round(DIF[q.dif].xp * frac);
+    somarXP(g, e.parcial, cats); fecharLevel(g); aplicar(g);
+    avisar(`<h3>Fim do período</h3><p><b>${esc(q.titulo)}</b>: ${Math.round(frac*100)}% feito</p><p>+${e.parcial} XP (proporcional, sem moedas)</p>`);
+    if (g.lv) avisoLevel(g);
+  }
 }
 
 /* ===================== JANELAS ===================== */
@@ -412,7 +490,7 @@ function topo(){
       <div class="bar"><i style="width:${Math.min(100, nv.dentro/nv.need*100)}%"></i></div>
       <div class="linha small" style="color:#cfc8e6"><span>${nv.dentro} / ${nv.need} XP</span><span>${bonusSeq()?`bônus sequência +${bonusSeq()*100}%`:''}</span></div>
     </div>
-    <button class="iconbtn" data-a="tab" data-id="config">${ic('engrenagem','30px')}</button>
+    <button class="iconbtn" data-a="tab" data-id="config"><span style="font-size:1.7rem;line-height:1">⚙️</span></button>
   </div>`;
 }
 function tagsMetas(ids){
@@ -428,10 +506,10 @@ function telaMissoes(){
     const falta = n - feitas, f = folga(n);
     status = (feitas >= 1 && falta <= f) ? `${ic('check','1em').replace(/#f4f0e6/g,'#4cb85c')} Dia garantido para a sequência` : `Faltam ${Math.max(1, falta - f)} para garantir a sequência`;
   }
-  let h = `<div class="sub">
-    <button class="chip on">Diária</button><button class="chip off">Semanal</button>
-    <button class="chip off">Mensal</button><button class="chip off">Bimestral</button></div>
-    <div class="resumo"><span>${fmtData(hoje())}</span><span>${feitas}/${n} feitas</span></div>`;
+  const subs = {dias:'Diária', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual'};
+  let h = `<div class="sub">${Object.entries(subs).map(([k,v]) => `<button class="chip ${ui.sub===k?'on':''}" data-a="sub" data-id="${k}">${v}</button>`).join('')}</div>`;
+  if (ui.sub !== 'dias') return h + telaPeriodicas(ui.sub);
+  h += `<div class="resumo"><span>${fmtData(hoje())}</span><span>${feitas}/${n} feitas</span></div>`;
   if (!S.metas.length){
     h += `<div class="card"><b>Bem-vindo ao Life UP!</b><p>Comece criando uma meta na aba <b>Metas</b>. Depois adicione quests a ela: as quests do dia aparecem aqui.</p>
       <button class="btn" data-a="tab" data-id="metas">Ir para Metas</button></div>`;
@@ -459,6 +537,27 @@ function telaMissoes(){
   h += `<button class="btn sec" data-a="novaExtra">+ Quest extra</button></div>`;
   return h;
 }
+function telaPeriodicas(freq){
+  const p = periodo(freq), h0 = hoje();
+  const restam = diasEntre(h0, p.fim) + 1;
+  const qs = S.quests.filter(q => q.ativa && q.freq === freq && q.metas.some(id => metaViva(meta(id))));
+  let h = `<div class="resumo"><span>${p.nome}</span><span>${restam} dia${restam>1?'s':''} restante${restam>1?'s':''}</span></div>`;
+  if (!qs.length) return h + `<div class="card vazio" style="color:var(--muted)">Nenhuma quest ${FREQ[freq].toLowerCase()}.<br><span class="small">Crie nas suas metas (aba Metas → Quests → + Quest) escolhendo a frequência.</span></div>`;
+  return h + qs.map(q => {
+    const e = perDe(q);
+    const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto');
+    const un = autos.length ? esc(autos[0].unidade||'') : 'vezes';
+    const pct = Math.min(100, e.feito / q.valor * 100);
+    const xp = Math.round(DIF[q.dif].xp*(1+bonusSeq()));
+    return `<div class="card"><div class="quest" style="padding-top:0">
+      <div class="qtxt ${e.completa?'':''}"><b>${esc(q.titulo)}</b>${tagsMetas(q.metas)}</div>
+      <div class="rw">${DIF[q.dif].nome}<br><b>${e.completa ? 'Completa' : `+${xp} XP`}</b></div></div>
+      <div class="mbar"><i style="width:${pct}%;background:${e.completa?'var(--ok)':'var(--gold)'}"></i></div>
+      <div class="small">${num(e.feito)} / ${num(q.valor)} ${un}${e.completa?' · completa!':''}</div>
+      <div class="row"><button class="btn ${e.completa?'sec':''}" data-a="registrar" data-id="${q.id}">+ Registrar</button>
+      ${e.regs.length?`<button class="btn sec" data-a="desfazerReg" data-id="${q.id}">Desfazer último</button>`:''}</div></div>`;
+  }).join('');
+}
 function cardMeta(m){
   const c = cat(m.cat);
   const qs = S.quests.filter(q => q.metas.includes(m.id));
@@ -485,7 +584,9 @@ function cardMeta(m){
   h += `<button class="link" data-a="abrir" data-id="${m.id}">${aberta?'▾':'▸'} Quests (${qs.length})</button>`;
   if (aberta){
     h += qs.map(q => `<div class="quest"><div class="qtxt"><b>${esc(q.titulo)}</b>
-        <span class="small">${DIF[q.dif].nome} · ${q.dias.length? q.dias.map(d=>SEMANA[d]).join(', ') : 'todos os dias'}${q.valor && m.tipo==='auto' ? ` · vale ${num(q.valor)} ${esc(m.unidade||'')}`:''}</span></div>
+        <span class="small">${DIF[q.dif].nome} · ${(q.freq||'dias')==='dias'
+          ? `${q.dias.length? q.dias.map(d=>SEMANA[d]).join(', ') : 'todos os dias'}${q.valor && m.tipo==='auto' ? ` · vale ${num(q.valor)} ${esc(m.unidade||'')}`:''}`
+          : `${FREQ[q.freq]} · ${num(q.valor)} ${m.tipo==='auto'?esc(m.unidade||''):'vez(es)'} por período`}</span></div>
         <button class="link" data-a="editarQuest" data-id="${q.id}">editar</button></div>`).join('');
     h += `<div class="row"><button class="btn sec" data-a="novaQuest" data-id="${m.id}">+ Quest</button>
       <button class="btn sec" data-a="editarMeta" data-id="${m.id}">Editar meta</button></div>`;
@@ -601,18 +702,21 @@ function salvarMeta(id){
 }
 let formDias = [];
 function formQuest(id, metaId){
-  const q = id ? quest(id) : {titulo:'', metas:[metaId], dif:'m', dias:[], valor:''};
+  const q = id ? quest(id) : {titulo:'', metas:[metaId], dif:'m', freq:'dias', dias:[], valor:''};
+  const fq = q.freq || 'dias';
   formDias = [...q.dias];
   const metas = S.metas.filter(m => m.status !== 'nao' || q.metas.includes(m.id));
   sheetEl.innerHTML = `<div class="sheet"><h3>${id?'Editar quest':'Nova quest'}</h3><div class="card">
     <label>Título</label><input id="qTitulo" value="${esc(q.titulo)}" placeholder="Ex.: Ler 20 páginas">
     <label>Dificuldade</label><select id="qDif">${Object.entries(DIF).map(([k,d])=>`<option value="${k}" ${k===q.dif?'selected':''}>${d.nome} · ${d.xp} XP · ${d.m} moedas</option>`).join('')}</select>
-    <label>Dias</label><div class="days" id="qDias">${SEMANA.map((s,i)=>`<button data-d="${i}" class="${formDias.includes(i)?'on':''}">${s[0]}</button>`).join('')}</div>
-    <div class="small" id="qDiasTxt"></div>
+    <label>Frequência</label><select id="qFreq">${Object.entries(FREQ).map(([k,v])=>`<option value="${k}" ${k===fq?'selected':''}>${v}</option>`).join('')}</select>
+    <div id="qDiasBox"><label>Dias</label><div class="days" id="qDias">${SEMANA.map((s,i)=>`<button data-d="${i}" class="${formDias.includes(i)?'on':''}">${s[0]}</button>`).join('')}</div>
+    <div class="small" id="qDiasTxt"></div></div>
     <label>Ligada às metas</label>${metas.map(m=>`<label class="ck"><input type="checkbox" value="${m.id}" ${q.metas.includes(m.id)?'checked':''}>
       <span class="tag" style="background:${cat(m.cat).cor}">${esc(m.titulo)}</span></label>`).join('')}
-    <div id="qValorBox"><label>Valor sugerido (quanto soma na meta)</label>
-      <input id="qValor" type="number" inputmode="decimal" step="any" value="${q.valor}" placeholder="1"></div>
+    <div id="qValorBox"><label id="qValorLbl">Valor sugerido (quanto soma na meta)</label>
+      <input id="qValor" type="number" inputmode="decimal" step="any" value="${q.valor}" placeholder="1">
+      <div class="small" id="qValorTxt"></div></div>
     <button class="btn" data-a="salvarQuest" data-id="${id||''}">Salvar</button>
     ${id?`<button class="btn bad" data-a="apagarQuest" data-id="${id}">Apagar quest</button>`:''}
     <button class="btn sec" data-a="fechar">Cancelar</button></div></div>`;
@@ -625,9 +729,16 @@ function formQuest(id, metaId){
   });
   const updValor = () => {
     const sel = [...document.querySelectorAll('.sheet .ck input:checked')].map(i => meta(i.value));
-    document.getElementById('qValorBox').style.display = sel.some(m => m && m.tipo==='auto') ? '' : 'none';
+    const auto = sel.some(m => m && m.tipo==='auto');
+    const periodica = document.getElementById('qFreq').value !== 'dias';
+    document.getElementById('qDiasBox').style.display = periodica ? 'none' : '';
+    document.getElementById('qValorBox').style.display = (auto || periodica) ? '' : 'none';
+    document.getElementById('qValorLbl').textContent = periodica ? 'Meta do período' : 'Valor sugerido (quanto soma na meta)';
+    document.getElementById('qValorTxt').textContent = periodica
+      ? (auto ? 'Quanto juntar/fazer em cada período. Ex.: 1000 (R$ por mês).' : 'Quantas vezes por período. Ex.: 3 (academia 3x na semana).') : '';
   };
   document.querySelectorAll('.sheet .ck input').forEach(i => i.onchange = updValor);
+  document.getElementById('qFreq').onchange = updValor;
   updDias(); updValor();
 }
 function salvarQuest(id){
@@ -636,7 +747,8 @@ function salvarQuest(id){
   if (!titulo) return janela('<h3>Dê um título à quest</h3>', [{txt:'Ok', ret:1}]);
   if (!metas.length) return janela('<h3>Ligue a quest a pelo menos uma meta</h3>', [{txt:'Ok', ret:1}]);
   const valor = parseFloat(String(document.getElementById('qValor').value).replace(',','.')) || 1;
-  const dados = { titulo, metas, dif:document.getElementById('qDif').value, dias:[...formDias], valor };
+  const freq = document.getElementById('qFreq').value;
+  const dados = { titulo, metas, dif:document.getElementById('qDif').value, freq, dias: freq==='dias' ? [...formDias] : [], valor };
   if (id) Object.assign(quest(id), dados);
   else S.quests.push({ id:uid(), ...dados, ativa:true, criada:hoje() });
   sincronizarHoje(); salvar(); fecharSheet(); render();
@@ -671,7 +783,7 @@ function importar(){
       const dados = JSON.parse(await f.text());
       if (!dados || dados.v !== 1 || !Array.isArray(dados.metas)) throw 0;
       if (!(await confirmar('Substituir todos os dados atuais por este backup?', 'Substituir', 'bad'))) return;
-      S = dados; avaliarSequencia(); diaDeHoje(); salvar(); render();
+      S = dados; if (!S.per) S.per = {}; avaliarSequencia(); diaDeHoje(); salvar(); render();
       janela('<h3>Backup importado!</h3>', [{txt:'Ok', ret:1}]);
     } catch(e){ janela('<h3>Arquivo inválido</h3><p class="small">Escolha um arquivo de backup do Life UP (.json).</p>', [{txt:'Ok', ret:1}]); }
     inp.value = '';
@@ -683,6 +795,9 @@ function importar(){
 const acoes = {
   tab: id => { ui.tab = id; render(); window.scrollTo(0,0); },
   filtro: id => { ui.filtro = id; render(); },
+  sub: id => { ui.sub = id; render(); },
+  registrar,
+  desfazerReg: async id => { if (await confirmar('Desfazer o último registro desta quest?', 'Desfazer')) desfazerRegistro(id); },
   abrir: id => { ui.aberta = ui.aberta === id ? null : id; render(); },
   concluir: concluirQuest,
   desfazer: async id => { if (await confirmar('Desmarcar esta quest?', 'Desmarcar')) desfazerQuest(id); },
@@ -724,7 +839,7 @@ const acoes = {
   exportar, importar,
   apagarTudo: async () => {
     if (!(await confirmar('Apagar TUDO? Isso não pode ser desfeito (a não ser que você tenha um backup).', 'Apagar tudo', 'bad'))) return;
-    S = novoEstado(); diaDeHoje(); salvar(); ui.tab = 'missoes'; render();
+    S = novoEstado(); S.per = {}; diaDeHoje(); salvar(); ui.tab = 'missoes'; render();
   },
 };
 document.addEventListener('click', e => {
