@@ -114,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.2.2';
+const VERSAO = '0.3.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -130,6 +130,8 @@ const CATS = [
   {id:10, nome:'Outros',                  cor:'#8a8a9a'},
 ];
 const PRAZOS = {curto:'Curto (até 3 meses)', medio:'Médio (até 6 meses)', longo:'Longo (até 1 ano)', muito:'Muito longo (+1 ano)'};
+const PRAZO_MESES = {curto:3, medio:6, longo:12, muito:24};
+function fimPadrao(inicio, prazo){ const d = parseKey(inicio); d.setMonth(d.getMonth() + PRAZO_MESES[prazo]); d.setDate(d.getDate()-1); return keyOf(d); }
 const PRAZO_CURTO = {curto:'Curto', medio:'Médio', longo:'Longo', muito:'Muito longo'};
 const DIF = {
   f:  {nome:'Fácil',         xp:10,  m:2},
@@ -184,6 +186,7 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
 const ui = { tab:'missoes', sub:'dias', filtro:'todas', aberta:null };
 if (!S.per) S.per = {};
+S.metas.forEach(m => { if (!m.fim) m.fim = fimPadrao(m.criada || hoje(), m.prazo); });
 const cat = id => CATS.find(c => c.id === +id) || CATS[9];
 const meta = id => S.metas.find(m => m.id === id);
 const quest = id => S.quests.find(q => q.id === id);
@@ -331,17 +334,31 @@ function reabrirMeta(id){
 }
 
 /* ===================== QUESTS PERIÓDICAS ===================== */
+// Recálculo: alvo do período = maior entre o valor original e (quanto falta na meta ÷ períodos restantes até a data final)
+function periodosRestantes(freq, ate){
+  let k = hoje(), n = 0;
+  while (k <= ate && n < 1000){ n++; k = addDias(periodo(freq, k).fim, 1); }
+  return n;
+}
+function alvoDoPeriodo(q){
+  const m = q.metas.map(meta).find(m => m && m.tipo === 'auto' && m.status === 'ativa' && m.fim && m.fim >= hoje());
+  if (!m) return q.valor;
+  const n = periodosRestantes(q.freq, m.fim);
+  const falta = Math.max(0, m.alvo - m.progresso);
+  return n > 0 ? Math.max(q.valor, Math.ceil(falta / n * 100) / 100) : q.valor;
+}
 function perDe(q){
   const p = periodo(q.freq), k = q.id + '|' + p.key;
-  if (!S.per[k]) S.per[k] = { qid:q.id, fim:p.fim, feito:0, regs:[], completa:false, fechado:false };
+  if (!S.per[k]) S.per[k] = { qid:q.id, fim:p.fim, feito:0, alvo:alvoDoPeriodo(q), regs:[], completa:false, fechado:false };
   return S.per[k];
 }
+const alvoPer = (e, q) => e.alvo ?? q.valor;
 async function registrar(id){
   const q = quest(id); if (!q) return;
   const e = perDe(q);
   const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto' && m.status !== 'nao');
-  const falta = Math.max(0, q.valor - e.feito);
-  const padrao = autos.length ? (falta || q.valor) : 1;
+  const falta = Math.max(0, alvoPer(e,q) - e.feito);
+  const padrao = autos.length ? (falta || alvoPer(e,q)) : 1;
   const un = autos.length && autos[0].unidade ? ` (${esc(autos[0].unidade)})` : (autos.length ? '' : ' (vezes)');
   const v = await pedirNumero(`Quanto foi?${un}`, padrao, `${esc(q.titulo)}${autos.length?` · soma em: ${autos.map(m=>esc(m.titulo)).join(', ')}`:''}`);
   if (v === null || v === 0) return;
@@ -351,7 +368,7 @@ async function registrar(id){
     m.progresso += v;
     if (m.status === 'ativa' && m.progresso >= m.alvo){ m.status = 'cumprida'; m.concluida = hoje(); bonusMeta(g, m); reg.concl.push(m.id); }
   });
-  if (!e.completa && e.feito >= q.valor){
+  if (!e.completa && e.feito >= alvoPer(e,q)){
     const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
     reg.xpQuest = Math.round(DIF[q.dif].xp * (1 + bonusSeq()));
     somarXP(g, reg.xpQuest, cats); g.moedas += DIF[q.dif].m;
@@ -385,12 +402,12 @@ function fecharPeriodos(){
     // regra: período não completado = XP proporcional ao que foi feito, sem moedas;
     // fica marcada como incompleta para o relatório e é recalculada na revisão bimestral
     e.falhou = true;
-    const frac = Math.min(1, Math.max(0, e.feito / q.valor));
+    const frac = Math.min(1, Math.max(0, e.feito / alvoPer(e,q)));
     const g = ganhoVazio();
     const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
     e.parcial = Math.round(DIF[q.dif].xp * frac);
     if (e.parcial > 0){ somarXP(g, e.parcial, cats); fecharLevel(g); aplicar(g); }
-    avisar(`<h3>Quest incompleta</h3><p><b>${esc(q.titulo)}</b>: ${num(e.feito)} de ${num(q.valor)} (${Math.round(frac*100)}%)</p>
+    avisar(`<h3>Quest incompleta</h3><p><b>${esc(q.titulo)}</b>: ${num(e.feito)} de ${num(alvoPer(e,q))} (${Math.round(frac*100)}%)</p>
       <p>+${e.parcial} XP proporcional · sem moedas</p><p class="small">Vai para o relatório da revisão bimestral.</p>`);
     if (g.lv) avisoLevel(g);
   }
@@ -551,13 +568,13 @@ function telaPeriodicas(freq){
     const e = perDe(q);
     const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto');
     const un = autos.length ? esc(autos[0].unidade||'') : 'vezes';
-    const pct = Math.min(100, e.feito / q.valor * 100);
+    const pct = Math.min(100, e.feito / alvoPer(e,q) * 100);
     const xp = Math.round(DIF[q.dif].xp*(1+bonusSeq()));
     return `<div class="card"><div class="quest" style="padding-top:0">
       <div class="qtxt ${e.completa?'':''}"><b>${esc(q.titulo)}</b>${tagsMetas(q.metas)}</div>
       <div class="rw">${DIF[q.dif].nome}<br><b>${e.completa ? 'Completa' : `+${xp} XP`}</b></div></div>
       <div class="mbar"><i style="width:${pct}%;background:${e.completa?'var(--ok)':'var(--gold)'}"></i></div>
-      <div class="small">${num(e.feito)} / ${num(q.valor)} ${un}${e.completa?' · completa!':''}</div>
+      <div class="small">${num(e.feito)} / ${num(alvoPer(e,q))} ${un}${e.completa?' · completa!':''}${alvoPer(e,q) > q.valor ? ` · recalculado (original ${num(q.valor)})`:''}</div>
       <div class="row"><button class="btn ${e.completa?'sec':''}" data-a="registrar" data-id="${q.id}">+ Registrar</button>
       ${e.regs.length?`<button class="btn sec" data-a="desfazerReg" data-id="${q.id}">Desfazer último</button>`:''}</div></div>`;
   }).join('');
@@ -577,7 +594,7 @@ function cardMeta(m){
   if (m.status === 'nao') st = `<span class="tag" style="background:#777">Não cumprida</span>`;
   let h = `<div class="card"><div class="meta-h"><div class="cor" style="background:${c.cor}"></div><div style="flex:1;min-width:0">
     <b>${esc(m.titulo)}</b> ${st}
-    <div class="small">${c.nome} · ${PRAZO_CURTO[m.prazo]} · ${m.tipo==='auto'?'Progresso':'Marco'}</div>
+    <div class="small">${c.nome} · ${PRAZO_CURTO[m.prazo]} · até ${m.fim ? fmtCurta(m.fim)+'/'+m.fim.slice(0,4) : '-'} · ${m.tipo==='auto'?'Progresso':'Marco'}</div>
     ${corpo}
     ${m.obs ? `<div class="small" style="margin-top:4px">${ic('nota')} ${esc(m.obs)}</div>`:''}
   </div></div>`;
@@ -668,11 +685,14 @@ function render(){
 const sheetEl = document.getElementById('sheet');
 const fecharSheet = () => { sheetEl.innerHTML = ''; };
 function formMeta(id){
-  const m = id ? meta(id) : {titulo:'', cat:4, prazo:'longo', tipo:'auto', alvo:'', unidade:'', obs:''};
+  const m = id ? meta(id) : {titulo:'', cat:4, prazo:'longo', tipo:'auto', alvo:'', unidade:'', obs:'', fim:fimPadrao(hoje(),'longo')};
+  const inicio = id ? (m.criada || hoje()) : hoje();
   sheetEl.innerHTML = `<div class="sheet"><h3>${id?'Editar meta':'Nova meta'}</h3><div class="card">
     <label>Título</label><input id="fTitulo" value="${esc(m.titulo)}" placeholder="Ex.: Juntar R$ 12 mil">
     <label>Categoria</label><select id="fCat">${CATS.map(c=>`<option value="${c.id}" ${c.id==m.cat?'selected':''}>${c.nome}</option>`).join('')}</select>
     <label>Prazo</label><select id="fPrazo">${Object.entries(PRAZOS).map(([k,v])=>`<option value="${k}" ${k===m.prazo?'selected':''}>${v}</option>`).join('')}</select>
+    <label>Data final</label><input id="fFim" type="date" value="${m.fim}">
+    <div class="small">Calculada pelo prazo; pode mudar (ex.: 31/12 para metas do ano). Usada para recalcular as quests periódicas.</div>
     <label>Tipo de conclusão</label>
     <select id="fTipo"><option value="auto" ${m.tipo==='auto'?'selected':''}>Progresso (tem um alvo; completa sozinha)</option>
       <option value="manual" ${m.tipo==='manual'?'selected':''}>Marco (eu marco cumprida / não cumprida)</option></select>
@@ -686,6 +706,7 @@ function formMeta(id){
   const tipo = document.getElementById('fTipo'), box = document.getElementById('fAlvoBox');
   const upd = () => box.style.display = tipo.value === 'auto' ? '' : 'none';
   tipo.onchange = upd; upd();
+  document.getElementById('fPrazo').onchange = e => { document.getElementById('fFim').value = fimPadrao(inicio, e.target.value); };
 }
 function salvarMeta(id){
   const v = x => document.getElementById(x).value;
@@ -694,7 +715,7 @@ function salvarMeta(id){
   const tipo = v('fTipo');
   const alvo = parseFloat(String(v('fAlvo')).replace(',','.'));
   if (tipo === 'auto' && !(alvo > 0)) return janela('<h3>Informe o alvo da meta</h3><p class="small">Ex.: 12000 (R$) ou 12 (livros).</p>', [{txt:'Ok', ret:1}]);
-  const dados = { titulo, cat:+v('fCat'), prazo:v('fPrazo'), tipo, alvo: tipo==='auto'?alvo:0, unidade:v('fUn').trim(), obs:v('fObs').trim() };
+  const dados = { titulo, cat:+v('fCat'), prazo:v('fPrazo'), tipo, alvo: tipo==='auto'?alvo:0, unidade:v('fUn').trim(), obs:v('fObs').trim(), fim: v('fFim') || fimPadrao(hoje(), v('fPrazo')) };
   if (id){
     const m = meta(id); Object.assign(m, dados);
     if (m.tipo === 'auto' && m.status === 'ativa' && m.progresso >= m.alvo){ /* alvo reduzido: completa no próximo progresso */ }
@@ -787,7 +808,7 @@ function importar(){
       const dados = JSON.parse(await f.text());
       if (!dados || dados.v !== 1 || !Array.isArray(dados.metas)) throw 0;
       if (!(await confirmar('Substituir todos os dados atuais por este backup?', 'Substituir', 'bad'))) return;
-      S = dados; if (!S.per) S.per = {}; avaliarSequencia(); diaDeHoje(); salvar(); render();
+      S = dados; if (!S.per) S.per = {}; S.metas.forEach(m => { if (!m.fim) m.fim = fimPadrao(m.criada || hoje(), m.prazo); }); avaliarSequencia(); diaDeHoje(); salvar(); render();
       janela('<h3>Backup importado!</h3>', [{txt:'Ok', ret:1}]);
     } catch(e){ janela('<h3>Arquivo inválido</h3><p class="small">Escolha um arquivo de backup do Life UP (.json).</p>', [{txt:'Ok', ret:1}]); }
     inp.value = '';
