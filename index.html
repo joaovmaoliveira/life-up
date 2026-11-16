@@ -114,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.3.0';
+const VERSAO = '0.4.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -148,6 +148,8 @@ const BONUS_META = {
 const LEVELUP_MOEDAS = 50;
 const EXTRA_MOEDAS = 3, EXTRA_MAX_PAGAS = 3;
 const VIRADA_HORA = 5;
+const BONUS_SEMANAL = 0.15, SEMANA_MAX_FALHAS = 1;   // semana com pelo menos 6 de 7 dias cumpridos → +15% do XP de quests
+const ESCUDOS_MAX = 3;
 const SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const FREQ = {dias:'Diária (dias da semana)', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual'};
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -179,14 +181,23 @@ function novoEstado(){
   return { v:1, criado:hoje(), metas:[], quests:[], dias:{}, xp:0, moedas:0, catXp:{}, baus:0,
            seq:{atual:0, recorde:0, ultimo:addDias(hoje(),-1)} };
 }
+function migrar(){
+  // completa campos que versões antigas não tinham
+  if (!S.per) S.per = {};
+  S.metas.forEach(m => { if (!m.fim) m.fim = fimPadrao(m.criada || hoje(), m.prazo); });
+  if (S.escudos == null) S.escudos = 0;
+  if (!S.res) S.res = {};          // resultado de cada dia: ok / escudo / falha
+  if (!S.sem) S.sem = {};          // ganhos de cada semana (XP, XP de quests, moedas)
+  if (!S.resumos) S.resumos = {};  // resumos das semanas fechadas
+  if (!S.semFechada) S.semFechada = addDias(periodo('semanal').ini, -7);
+}
 let S;
 try { S = JSON.parse(localStorage.getItem(CHAVE)) || novoEstado(); } catch(e){ S = novoEstado(); }
 const salvar = () => localStorage.setItem(CHAVE, JSON.stringify(S));
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
 const ui = { tab:'missoes', sub:'dias', filtro:'todas', aberta:null };
-if (!S.per) S.per = {};
-S.metas.forEach(m => { if (!m.fim) m.fim = fimPadrao(m.criada || hoje(), m.prazo); });
+migrar();
 const cat = id => CATS.find(c => c.id === +id) || CATS[9];
 const meta = id => S.metas.find(m => m.id === id);
 const quest = id => S.quests.find(q => q.id === id);
@@ -214,21 +225,32 @@ function agendadas(k){
     q.metas.some(id => metaViva(meta(id))));
 }
 function folga(n){ return Math.max(1, Math.floor(n*0.2)); }
+function diaCumprido(d){
+  // null = dia sem quests (não conta)
+  const r = S.dias[d];
+  const n = r ? r.prog.length : (d >= S.criado ? agendadas(d).length : 0);
+  if (!n) return null;
+  const feitas = r ? r.prog.filter(id => r.feitas[id]).length : 0;
+  return feitas >= 1 && n - feitas <= folga(n);
+}
+const resultadoDia = d => S.res[d] || (d < hoje() ? ({true:'ok', false:'falha'})[diaCumprido(d)] : null) || null;
 function avaliarSequencia(){
-  const h = hoje();
+  const h = hoje(), usados = [];
   let d = addDias(S.seq.ultimo, 1);
   while (d < h){
-    const r = S.dias[d];
-    const n = r ? r.prog.length : agendadas(d).length;
-    const feitas = r ? r.prog.filter(id => r.feitas[id]).length : 0;
-    if (n > 0){
-      if (feitas >= 1 && n - feitas <= folga(n)){
-        S.seq.atual++; S.seq.recorde = Math.max(S.seq.recorde, S.seq.atual);
-      } else S.seq.atual = 0;
+    const ok = diaCumprido(d);
+    if (ok === true){
+      S.seq.atual++; S.seq.recorde = Math.max(S.seq.recorde, S.seq.atual); S.res[d] = 'ok';
+    } else if (ok === false){
+      if (S.seq.atual > 0 && S.escudos > 0){ S.escudos--; S.res[d] = 'escudo'; usados.push(d); }
+      else { S.seq.atual = 0; S.res[d] = 'falha'; }
     }
     d = addDias(d, 1);
   }
   S.seq.ultimo = addDias(h, -1);
+  if (usados.length) avisar(`<div class="big">${ic('escudo','64px')}</div><h3 class="px">ESCUDO USADO!</h3>
+    <p>${usados.map(fmtData).join(', ')}: o dia não foi cumprido, mas o escudo protegeu sua sequência.</p>
+    <p>Sequência mantida: <b>${S.seq.atual}</b> ${ic('fogo')}</p><p class="small">Escudos restantes: ${S.escudos}/${ESCUDOS_MAX}</p>`);
 }
 function diaDeHoje(){
   const h = hoje();
@@ -244,17 +266,27 @@ function sincronizarHoje(){
 }
 let diaAtual = null;
 function checarVirada(){
-  if (diaAtual !== hoje()){ avaliarSequencia(); fecharPeriodos(); diaDeHoje(); diaAtual = hoje(); salvar(); render(); }
+  if (diaAtual !== hoje()){ avaliarSequencia(); fecharPeriodos(); fecharSemanas(); diaDeHoje(); diaAtual = hoje(); salvar(); render(); }
 }
 
 /* ===================== GANHOS (XP, moedas, baús) ===================== */
+const semAtual = () => periodo('semanal').ini;
+function logSem(wk, xp, xq, m, qc, sinal=1){
+  const L = S.sem[wk] || (S.sem[wk] = {xp:0, xq:0, m:0, qc:{}});
+  L.xp += sinal*xp; L.xq += sinal*xq; L.m += sinal*m;
+  for (const c in qc) L.qc[c] = (L.qc[c]||0) + sinal*qc[c];
+}
 function aplicar(g, sinal=1){
   S.xp += sinal*g.xp;
   for (const c in g.cats) S.catXp[c] = (S.catXp[c]||0) + sinal*g.cats[c];
   S.moedas += sinal*g.moedas;
   S.baus += sinal*g.baus;
+  if (!g.sem) g.sem = semAtual();   // semana em que o ganho entrou (desfazer tira da mesma semana)
+  logSem(g.sem, g.xp, g.xq||0, g.moedas, g.qc||{}, sinal);
 }
 function somarXP(g, xp, cats){ g.xp += xp; cats.forEach(c => g.cats[c] = (g.cats[c]||0) + xp); }
+// XP vindo de quest (base do bônus semanal)
+function somarXPQuest(g, xp, cats){ somarXP(g, xp, cats); g.xq = (g.xq||0) + xp; g.qc = g.qc || {}; cats.forEach(c => g.qc[c] = (g.qc[c]||0) + xp); }
 function fecharLevel(g){
   // calcula level up que este ganho provoca e já inclui as recompensas
   const antes = nivel(S.xp).n, depois = nivel(S.xp + g.xp).n;
@@ -282,7 +314,7 @@ async function concluirQuest(id){
   const g = ganhoVazio();
   const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
   const xpQuest = Math.round(DIF[q.dif].xp * (1 + bonusSeq()));
-  somarXP(g, xpQuest, cats);
+  somarXPQuest(g, xpQuest, cats);
   g.moedas += DIF[q.dif].m;
   const concl = [];
   autos.forEach(m => {
@@ -310,9 +342,9 @@ function toggleExtra(id){
   if (!e.feita){
     const pagas = r.extras.filter(x => x.feita && x.moedas > 0).length;
     e.moedas = pagas < EXTRA_MAX_PAGAS ? EXTRA_MOEDAS : 0;
-    S.moedas += e.moedas; e.feita = true;
+    S.moedas += e.moedas; e.feita = true; e.sem = semAtual(); logSem(e.sem, 0, 0, e.moedas, {});
   } else {
-    S.moedas -= e.moedas; e.moedas = 0; e.feita = false;
+    S.moedas -= e.moedas; logSem(e.sem || semAtual(), 0, 0, e.moedas, {}, -1); e.moedas = 0; e.feita = false;
   }
   salvar(); render();
 }
@@ -371,7 +403,7 @@ async function registrar(id){
   if (!e.completa && e.feito >= alvoPer(e,q)){
     const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
     reg.xpQuest = Math.round(DIF[q.dif].xp * (1 + bonusSeq()));
-    somarXP(g, reg.xpQuest, cats); g.moedas += DIF[q.dif].m;
+    somarXPQuest(g, reg.xpQuest, cats); g.moedas += DIF[q.dif].m;
     e.completa = true; reg.completou = true;
   }
   fecharLevel(g); aplicar(g); reg.g = g; e.regs.push(reg);
@@ -403,15 +435,101 @@ function fecharPeriodos(){
     // fica marcada como incompleta para o relatório e é recalculada na revisão bimestral
     e.falhou = true;
     const frac = Math.min(1, Math.max(0, e.feito / alvoPer(e,q)));
-    const g = ganhoVazio();
+    const g = ganhoVazio(); g.sem = periodo('semanal', e.fim).ini;
     const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
     e.parcial = Math.round(DIF[q.dif].xp * frac);
-    if (e.parcial > 0){ somarXP(g, e.parcial, cats); fecharLevel(g); aplicar(g); }
+    if (e.parcial > 0){ somarXPQuest(g, e.parcial, cats); fecharLevel(g); aplicar(g); }
     avisar(`<h3>Quest incompleta</h3><p><b>${esc(q.titulo)}</b>: ${num(e.feito)} de ${num(alvoPer(e,q))} (${Math.round(frac*100)}%)</p>
       <p>+${e.parcial} XP proporcional · sem moedas</p><p class="small">Vai para o relatório da revisão bimestral.</p>`);
     if (g.lv) avisoLevel(g);
   }
 }
+
+/* ===================== SEMANA: BÔNUS, ESCUDO E RESUMO ===================== */
+function semanaDias(ini){ return [0,1,2,3,4,5,6].map(i => addDias(ini, i)); }
+function contarSemana(ini){
+  const dias = semanaDias(ini).map(d => ({d, r: resultadoDia(d)}));
+  const ok = dias.filter(x => x.r === 'ok').length;
+  const falhas = dias.filter(x => x.r === 'falha' || x.r === 'escudo').length;
+  return { dias, ok, falhas, comQuest: ok + falhas };
+}
+function semanaisDa(ini){
+  // quests semanais que valiam nessa semana e se foram completadas
+  const fim = addDias(ini, 6);
+  const qs = S.quests.filter(q => q.freq === 'semanal' && q.ativa && (q.criada||'') <= fim && q.metas.some(id => metaViva(meta(id))));
+  return qs.map(q => ({ q, ok: !!(S.per[q.id + '|S' + ini] || {}).completa }));
+}
+function catsDaSemana(L){
+  const ativas = new Set(S.metas.filter(m => m.status === 'ativa').map(m => +m.cat));
+  const qc = L ? L.qc : {};
+  let dest = null, aten = null;
+  CATS.forEach(c => {
+    const v = qc[c.id] || 0;
+    if (v > 0 && (!dest || v > dest.v)) dest = {c, v};
+    if (ativas.has(c.id) && (!aten || v < aten.v)) aten = {c, v};
+  });
+  if (ativas.size < 2 || (aten && dest && aten.c.id === dest.c.id)) aten = null;
+  return { dest, aten };
+}
+function fecharSemana(ini, mostrar){
+  const c = contarSemana(ini), L = S.sem[ini] || {xp:0, xq:0, m:0, qc:{}};
+  const R = { ini, ok:c.ok, falhas:c.falhas, comQuest:c.comQuest, dias:c.dias.map(x => x.r), bonus:0, escudo:0, cheio:false };
+  // bônus semanal: +15% do XP de quests, se faltou no máximo 1 dia
+  if (c.comQuest > 0 && c.falhas <= SEMANA_MAX_FALHAS && L.xq > 0){
+    const g = ganhoVazio(); g.sem = ini;
+    g.xp = Math.round(L.xq * BONUS_SEMANAL);
+    for (const k in L.qc) g.cats[k] = Math.round(L.qc[k] * BONUS_SEMANAL);
+    fecharLevel(g); aplicar(g);
+    R.bonus = g.xp; if (g.lv) R.lv = g;
+  }
+  // escudo: completou todas as quests semanais
+  const sems = semanaisDa(ini);
+  R.semanais = sems.length; R.semanaisOk = sems.filter(x => x.ok).length;
+  if (sems.length && R.semanaisOk === sems.length){
+    if (S.escudos < ESCUDOS_MAX){ S.escudos++; R.escudo = 1; } else R.cheio = true;
+  }
+  const L2 = S.sem[ini] || L;
+  R.xp = L2.xp; R.moedas = L2.m; R.seq = S.seq.atual; R.recorde = S.seq.recorde; R.escudos = S.escudos;
+  const cs = catsDaSemana(L2);
+  R.dest = cs.dest ? cs.dest.c.id : null; R.aten = cs.aten ? cs.aten.c.id : null;
+  S.resumos[ini] = R;
+  if (mostrar) avisoResumo(R);
+  if (R.lv && mostrar) avisoLevel(R.lv);
+}
+function fecharSemanas(){
+  const h = hoje();
+  let ini = addDias(S.semFechada, 7);
+  while (addDias(ini, 6) < h){
+    fecharSemana(ini, addDias(ini, 13) >= h);   // mostra só o resumo da semana mais recente
+    S.semFechada = ini; ini = addDias(ini, 7);
+  }
+}
+const COR_DIA = {ok:'#4cb85c', escudo:'#4a7fe0', falha:'#e04848'};
+function tirinhaDias(ini, rs, destacar){
+  return `<div style="display:flex;gap:4px;margin:8px 0">${semanaDias(ini).map((d,i) => {
+    const r = rs[i], hj = destacar && d === hoje();
+    return `<div style="flex:1;text-align:center"><div class="small">${SEMANA[diaSemana(d)][0]}</div>
+      <div style="height:22px;border:2px solid var(--line);border-radius:6px;background:${COR_DIA[r]||(hj?'#fff':'#d8d2c4')};${hj?'box-shadow:0 0 0 2px var(--gold)':''}">${r==='escudo'?ic('escudo','16px'):''}</div></div>`;
+  }).join('')}</div>`;
+}
+function htmlResumo(R){
+  const fim = addDias(R.ini, 6);
+  const linha = (a, b) => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:2px dashed #cfc7b4"><span>${a}</span><b>${b}</b></div>`;
+  let h = `<h3 class="px">RESUMO DA SEMANA</h3><div class="small">${fmtCurta(R.ini)} a ${fmtCurta(fim)}</div>
+    ${tirinhaDias(R.ini, R.dias)}<div style="text-align:left">`;
+  h += linha('Dias cumpridos', R.comQuest ? `${R.ok} de ${R.comQuest}` : 'sem quests');
+  h += linha('XP ganho', `+${R.xp}`);
+  h += linha('Bônus semanal', R.bonus ? `+${R.bonus} XP` : (R.comQuest ? `perdido (${R.falhas} dias falhos)` : '—'));
+  h += linha(`Moedas`, `+${R.moedas} ${ic('moeda')}`);
+  h += linha(`Sequência`, `${R.seq} ${ic('fogo')} (recorde ${R.recorde})`);
+  h += linha(`Escudo`, R.escudo ? `+1 ${ic('escudo')} (${R.escudos}/${ESCUDOS_MAX})`
+    : R.cheio ? `estoque cheio (${ESCUDOS_MAX}/${ESCUDOS_MAX})`
+    : R.semanais ? `${R.semanaisOk}/${R.semanais} semanais` : 'sem quests semanais');
+  if (R.dest) h += linha('Destaque', `<span class="tag" style="background:${cat(R.dest).cor}">${cat(R.dest).nome}</span>`);
+  if (R.aten) h += linha('Atenção', `<span class="tag" style="background:${cat(R.aten).cor}">${cat(R.aten).nome}</span>`);
+  return h + `</div>`;
+}
+function avisoResumo(R){ avisar(htmlResumo(R)); }
 
 /* ===================== JANELAS ===================== */
 const modalEl = document.getElementById('modal');
@@ -462,6 +580,7 @@ const ICONES = {
   bau:["................","................","...KKKKKKKKKK...","..KBBBBBBBBBBK..","..KBbBBBBBBbBK..","..KGGGGGGGGGGK..","..KBBBBGGBBBBK..","..KKKKKGYKKKKK..","..KBBBBGYBBBBK..","..KBbBBBBBBbBK..","..KBbBBBBBBbBK..","..KGGGGGGGGGGK..","..KBBBBBBBBBBK..","..KKKKKKKKKKKK..","................","................"],
   subir:[".....KK.....","....KGGK....","...KGGGGK...","..KGGGGGGK..",".KGGGGGGGGK.",".KKKKGGKKKK.","....KGGK....","....KGGK....","....KGGK....","....KGGK....","....KKKK....","............"],
   check:["............","............",".........WW.","........WWW.",".......WWW..",".WW...WWW...",".WWW.WWW....","..WWWWW.....","...WWW......","....W.......","............","............"],
+  escudo:["..KKKKKKKK..",".KUUUUUUUUK.",".KUWUUUUUUK.",".KUWUUGUUUK.",".KUUUGGGUUK.",".KUUGGGGGUK.",".KUUUGGGUUK.","..KUUUGUUK..","..KUUUUUUK..","...KUUUUK...","....KUUK....",".....KK....."],
   nota:["..KKKKKKK...","..KWWWWWKK..","..KWKKKWWK..","..KWWWWWWK..","..KWKKKKWK..","..KWWWWWWK..","..KWKKKKWK..","..KWWWWWWK..","..KWKKKWWK..","..KWWWWWWK..","..KKKKKKKK..","............"],
 };
 const _icCache = {};
@@ -507,7 +626,7 @@ function topo(){
   return `<div class="top">
     <button class="avatar" data-a="tab" data-id="perfil">${personagemSVG()}<span class="lv px">${nv.n}</span></button>
     <div class="stats">
-      <div class="linha"><b class="px">Nível ${nv.n}</b><span>${ic('moeda')} ${S.moedas} &nbsp;${ic('fogo')} ${S.seq.atual}</span></div>
+      <div class="linha"><b class="px">Nível ${nv.n}</b><span>${ic('moeda')} ${S.moedas} &nbsp;${ic('fogo')} ${S.seq.atual} &nbsp;${ic('escudo')} ${S.escudos}</span></div>
       <div class="bar"><i style="width:${Math.min(100, nv.dentro/nv.need*100)}%"></i></div>
       <div class="linha small" style="color:#cfc8e6"><span>${nv.dentro} / ${nv.need} XP</span><span>${bonusSeq()?`bônus sequência +${bonusSeq()*100}%`:''}</span></div>
     </div>
@@ -563,6 +682,7 @@ function telaPeriodicas(freq){
   const restam = diasEntre(h0, p.fim) + 1;
   const qs = S.quests.filter(q => q.ativa && q.freq === freq && q.metas.some(id => metaViva(meta(id))));
   let h = `<div class="resumo"><span>${p.nome}</span><span>${restam} dia${restam>1?'s':''} restante${restam>1?'s':''}</span></div>`;
+  if (freq === 'semanal') h += painelSemana(p.ini);
   if (!qs.length) return h + `<div class="card vazio" style="color:var(--muted)">Nenhuma quest ${FREQ[freq].toLowerCase()}.<br><span class="small">Crie nas suas metas (aba Metas → Quests → + Quest) escolhendo a frequência.</span></div>`;
   return h + qs.map(q => {
     const e = perDe(q);
@@ -578,6 +698,21 @@ function telaPeriodicas(freq){
       <div class="row"><button class="btn ${e.completa?'sec':''}" data-a="registrar" data-id="${q.id}">+ Registrar</button>
       ${e.regs.length?`<button class="btn sec" data-a="desfazerReg" data-id="${q.id}">Desfazer último</button>`:''}</div></div>`;
   }).join('');
+}
+function painelSemana(ini){
+  const c = contarSemana(ini), L = S.sem[ini] || {xq:0};
+  const sems = semanaisDa(ini), ok = sems.filter(x => x.ok || (S.per[x.q.id+'|S'+ini]||{}).completa).length;
+  const restFalhas = SEMANA_MAX_FALHAS - c.falhas;
+  const bon = c.falhas > SEMANA_MAX_FALHAS ? `<span style="color:var(--bad)">perdido nesta semana</span>`
+    : `+${Math.round(L.xq*BONUS_SEMANAL)} XP até agora · ${restFalhas ? 'pode falhar mais 1 dia' : 'não pode falhar mais nenhum dia'}`;
+  const esc_ = !sems.length ? 'crie quests semanais para ganhar escudos'
+    : S.escudos >= ESCUDOS_MAX ? `estoque cheio (${ESCUDOS_MAX}/${ESCUDOS_MAX})`
+    : ok === sems.length ? 'garantido! (chega no fim da semana)' : `complete todas as semanais (${ok}/${sems.length})`;
+  const ult = S.resumos[addDias(ini, -7)];
+  return `<div class="card"><b>Esta semana</b>${tirinhaDias(ini, c.dias.map(x => x.r), true)}
+    <div class="small">${ic('subir')} <b>Bônus semanal (+15%):</b> ${bon}</div>
+    <div class="small" style="margin-top:4px">${ic('escudo')} <b>Escudo:</b> ${esc_}</div>
+    ${ult ? `<button class="link" data-a="verResumo" data-id="${ult.ini}">Ver resumo da semana passada</button>` : ''}</div>`;
 }
 function cardMeta(m){
   const c = cat(m.cat);
@@ -651,6 +786,7 @@ function telaPerfil(){
       <div class="row" style="text-align:center;margin-top:10px">
         <div><div class="px" style="font-size:1.3rem">${ic('moeda')} ${S.moedas}</div><div class="small">moedas</div></div>
         <div><div class="px" style="font-size:1.3rem">${ic('bau')} ${S.baus}</div><div class="small">baús guardados</div></div>
+        <div><div class="px" style="font-size:1.3rem">${ic('escudo')} ${S.escudos}/${ESCUDOS_MAX}</div><div class="small">escudos</div></div>
       </div></div>
     <h2>Nível por categoria</h2><div class="card">`;
   h += CATS.map(c => { const v = nivel(S.catXp[c.id]||0);
@@ -663,6 +799,7 @@ function telaConfig(){
       <button class="btn" data-a="exportar">Exportar backup</button>
       <button class="btn sec" data-a="importar">Importar backup</button>
       <input type="file" id="arqImport" accept=".json,application/json" style="display:none"></div>
+    <div class="card"><b>Escudos ${ic('escudo')} ${S.escudos}/${ESCUDOS_MAX}</b><p class="small">Usados sozinhos: se um dia não for cumprido e você tiver sequência, o escudo protege a sequência. Ganhe 1 por semana completando todas as quests semanais (máx. ${ESCUDOS_MAX} guardados). O dia protegido não conta como cumprido para o bônus semanal.</p></div>
     <div class="card"><b>Virada do dia</b><p class="small">O dia vira às ${pad(VIRADA_HORA)}h (o que você marcar de madrugada conta para o dia anterior).</p></div>
     <div class="card"><b>Zona de perigo</b><p class="small">Apaga metas, quests, XP, moedas e histórico. Use para limpar os testes.</p>
       <button class="btn bad" data-a="apagarTudo">Apagar tudo</button></div>
@@ -808,7 +945,7 @@ function importar(){
       const dados = JSON.parse(await f.text());
       if (!dados || dados.v !== 1 || !Array.isArray(dados.metas)) throw 0;
       if (!(await confirmar('Substituir todos os dados atuais por este backup?', 'Substituir', 'bad'))) return;
-      S = dados; if (!S.per) S.per = {}; S.metas.forEach(m => { if (!m.fim) m.fim = fimPadrao(m.criada || hoje(), m.prazo); }); avaliarSequencia(); diaDeHoje(); salvar(); render();
+      S = dados; migrar(); avaliarSequencia(); fecharSemanas(); diaDeHoje(); salvar(); render();
       janela('<h3>Backup importado!</h3>', [{txt:'Ok', ret:1}]);
     } catch(e){ janela('<h3>Arquivo inválido</h3><p class="small">Escolha um arquivo de backup do Life UP (.json).</p>', [{txt:'Ok', ret:1}]); }
     inp.value = '';
@@ -836,7 +973,7 @@ const acoes = {
   apagarExtra: async id => {
     if (!(await confirmar('Apagar esta quest extra?', 'Apagar', 'bad'))) return;
     const r = diaDeHoje(), x = r.extras.find(e => e.id === id);
-    if (x && x.feita) S.moedas -= x.moedas;
+    if (x && x.feita){ S.moedas -= x.moedas; logSem(x.sem || semAtual(), 0, 0, x.moedas, {}, -1); }
     r.extras = r.extras.filter(e => e.id !== id); salvar(); render();
   },
   novaMeta: () => formMeta(null),
@@ -861,10 +998,11 @@ const acoes = {
   naoCumprida: async id => { if (await confirmar('Marcar como não cumprida? O XP e as moedas das quests continuam; só o bônus de conclusão é perdido.', 'Não cumprida')) metaManual(id, 'nao'); },
   reabrir: async id => { if (await confirmar('Reabrir esta meta? Se ela deu bônus de conclusão, ele é desfeito.', 'Reabrir')) reabrirMeta(id); },
   fechar: fecharSheet,
+  verResumo: id => { const R = S.resumos[id]; if (R) janela(htmlResumo(R), [{txt:'Fechar', ret:1}]); },
   exportar, importar,
   apagarTudo: async () => {
     if (!(await confirmar('Apagar TUDO? Isso não pode ser desfeito (a não ser que você tenha um backup).', 'Apagar tudo', 'bad'))) return;
-    S = novoEstado(); S.per = {}; diaDeHoje(); salvar(); ui.tab = 'missoes'; render();
+    S = novoEstado(); migrar(); diaDeHoje(); salvar(); ui.tab = 'missoes'; render();
   },
 };
 document.addEventListener('click', e => {
