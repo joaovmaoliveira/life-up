@@ -114,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.4.3';
+const VERSAO = '0.5.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -149,7 +149,12 @@ const LEVELUP_MOEDAS = 50;
 const EXTRA_MOEDAS = 3, EXTRA_MAX_PAGAS = 3;
 const VIRADA_HORA = 5;
 const BONUS_SEMANAL = 0.15, SEMANA_MAX_FALHAS = 1;   // semana com pelo menos 6 de 7 dias cumpridos → +15% do XP de quests
-const ESCUDOS_MAX = 3, ESCUDO_EXCEDENTE_MOEDAS = 200;   // escudo ganho com estoque cheio vira moedas
+const ESCUDOS_MAX = 3, ESCUDO_EXCEDENTE_MOEDAS = 200;
+const ITENS = {
+  escudo:     {nome:'Escudo',                 preco:500, max:ESCUDOS_MAX, desc:'Protege a sequência em 1 dia não cumprido. O app pergunta antes de usar.'},
+  pergaminho: {nome:'Pergaminho de adiamento', preco:50,  max:5, desc:'Passa 1 quest diária para amanhã, sem penalidade. Use tocando no nome da quest.'},
+  dado:       {nome:'Dado da troca',           preco:100, max:5, desc:'Troca 1 quest do dia por outra sorteada da mesma meta e dificuldade. Use tocando no nome da quest.'},
+};   // escudo ganho com estoque cheio vira moedas
 const SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const FREQ = {dias:'Diária (dias da semana)', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual'};
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -190,17 +195,22 @@ function migrar(){
   if (!S.sem) S.sem = {};          // ganhos de cada semana (XP, XP de quests, moedas)
   if (!S.resumos) S.resumos = {};  // resumos das semanas fechadas
   if (!S.semFechada) S.semFechada = addDias(periodo('semanal').ini, -7);
+  if (!S.itens) S.itens = {pergaminho:0, dado:0};
+  if (!S.adiadas) S.adiadas = {};      // dia → quests adiadas para ele
+  if (!S.recompensas) S.recompensas = [];
+  if (!S.resgates) S.resgates = [];
 }
 let S;
 try { S = JSON.parse(localStorage.getItem(CHAVE)) || novoEstado(); } catch(e){ S = novoEstado(); }
 const salvar = () => localStorage.setItem(CHAVE, JSON.stringify(S));
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
-const ui = { tab:'missoes', sub:'dias', filtro:'todas', aberta:null };
+const ui = { tab:'missoes', sub:'dias', filtro:'todas', aberta:null, loja:'itens' };
 migrar();
 const cat = id => CATS.find(c => c.id === +id) || CATS[9];
 const meta = id => S.metas.find(m => m.id === id);
 const quest = id => S.quests.find(q => q.id === id);
+const qidDe = k => String(k).split('@')[0];   // 'abc@ad' = quest adiada do dia anterior
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num = n => (Math.round(n*100)/100).toLocaleString('pt-BR');
 
@@ -228,7 +238,7 @@ function folga(n){ return Math.max(1, Math.floor(n*0.2)); }
 function diaCumprido(d){
   // null = dia sem quests (não conta)
   const r = S.dias[d];
-  const n = r ? r.prog.length : (d >= S.criado ? agendadas(d).length : 0);
+  const n = r ? r.prog.length : (d >= S.criado ? agendadas(d).length + (S.adiadas[d]||[]).length : 0);
   if (!n) return null;
   const feitas = r ? r.prog.filter(id => r.feitas[id]).length : 0;
   return feitas >= 1 && n - feitas <= folga(n);
@@ -270,14 +280,15 @@ async function processarSequencia(){
 }
 function diaDeHoje(){
   const h = hoje();
-  if (!S.dias[h]) S.dias[h] = { prog: agendadas(h).map(q => q.id), feitas:{}, extras:[] };
+  if (!S.dias[h]) S.dias[h] = { prog: [...agendadas(h).map(q => q.id), ...(S.adiadas[h]||[])], feitas:{}, extras:[], fora:[], dentro:[] };
   return S.dias[h];
 }
 function sincronizarHoje(){
   // após criar/editar/apagar quests, ajusta a lista de hoje (sem mexer no que já foi feito)
   const r = diaDeHoje(), h = hoje();
-  const devem = new Set(agendadas(h).map(q => q.id));
-  r.prog = r.prog.filter(id => devem.has(id) || r.feitas[id]);
+  const fora = r.fora || [], dentro = r.dentro || [];
+  const devem = new Set(agendadas(h).map(q => q.id).filter(id => !fora.includes(id)));
+  r.prog = r.prog.filter(id => r.feitas[id] || (String(id).includes('@') || dentro.includes(id) ? !!quest(qidDe(id)) : devem.has(id)));
   devem.forEach(id => { if (!r.prog.includes(id)) r.prog.push(id); });
 }
 let diaAtual = null, virando = false;
@@ -321,7 +332,7 @@ function bonusMeta(g, m){
 
 /* ===================== AÇÕES ===================== */
 async function concluirQuest(id){
-  const q = quest(id), r = diaDeHoje();
+  const q = quest(qidDe(id)), r = diaDeHoje();
   if (!q || r.feitas[id]) return;
   const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto' && m.status !== 'nao');
   let valor = 0;
@@ -544,6 +555,99 @@ function htmlResumo(R){
 }
 function avisoResumo(R){ avisar(htmlResumo(R)); }
 
+/* ===================== LOJA E ITENS ===================== */
+const qtdItem = k => k === 'escudo' ? S.escudos : (S.itens[k]||0);
+async function comprar(k){
+  const it = ITENS[k];
+  if (S.moedas < it.preco || qtdItem(k) >= it.max) return;
+  if (!(await confirmar(`Comprar ${it.nome} por ${it.preco} moedas?`, 'Comprar'))) return;
+  S.moedas -= it.preco;
+  if (k === 'escudo') S.escudos++; else S.itens[k] = (S.itens[k]||0) + 1;
+  salvar(); render();
+}
+async function acoesQuest(k){
+  const q = quest(qidDe(k)), r = diaDeHoje();
+  if (!q || r.feitas[k]) return;
+  const p = S.itens.pergaminho||0, d = S.itens.dado||0;
+  const ops = [];
+  if (p) ops.push({txt:`Adiar para amanhã (pergaminho · tem ${p})`, ret:'adiar'});
+  if (d) ops.push({txt:`Trocar por outra (dado · tem ${d})`, ret:'trocar'});
+  if (!p || !d) ops.push({txt:'Ir para a Loja', cls:'sec', ret:'loja'});
+  ops.push({txt:'Cancelar', cls:'sec', ret:null});
+  const v = await janela(`<h3>${esc(q.titulo)}</h3>${tagsMetas(q.metas)}
+    ${!p && !d ? '<p class="small">Você não tem pergaminho nem dado. Compre na Loja.</p>' : ''}`, ops);
+  if (v === 'adiar') adiarQuest(k);
+  if (v === 'trocar') trocarQuest(k);
+  if (v === 'loja'){ ui.tab = 'loja'; ui.loja = 'itens'; render(); }
+}
+function adiarQuest(k){
+  const r = diaDeHoje(), am = addDias(hoje(), 1), nk = qidDe(k) + '@ad';
+  if (!(S.itens.pergaminho > 0) || r.feitas[k]) return;
+  S.adiadas[am] = S.adiadas[am] || [];
+  if (S.adiadas[am].includes(nk)) return janela('<h3>Essa quest já está adiada para amanhã</h3>', [{txt:'Ok', ret:1}]);
+  S.adiadas[am].push(nk); S.itens.pergaminho--;
+  r.prog = r.prog.filter(x => x !== k);
+  (r.fora = r.fora || []).push(k);
+  (r.adiou = r.adiou || []).push(qidDe(k));
+  salvar(); render();
+  avisar(`<div class="big">${ic('pergaminho','64px')}</div><h3>Quest adiada</h3><p><b>${esc(quest(qidDe(k)).titulo)}</b> vai aparecer amanhã.</p><p class="small">Hoje ela não conta para a sequência.</p>`);
+}
+function opcoesTroca(k){
+  const q = quest(qidDe(k)), r = diaDeHoje(), usadas = new Set([...r.prog, ...(r.fora||[])].map(qidDe));   // não sorteia quest já tirada do dia
+  return S.quests.filter(o => o.ativa && o.id !== q.id && (o.freq||'dias') === 'dias' && o.dif === q.dif &&
+    o.metas.some(m => q.metas.includes(m)) && !usadas.has(o.id) && o.metas.some(id => metaViva(meta(id))));
+}
+function trocarQuest(k){
+  const r = diaDeHoje();
+  if (!(S.itens.dado > 0) || r.feitas[k]) return;
+  const ops = opcoesTroca(k);
+  if (!ops.length) return janela(`<h3>Nada para trocar</h3><p class="small">Não há outra quest diária da mesma meta e dificuldade (${DIF[quest(qidDe(k)).dif].nome}). O dado não foi gasto.</p>`, [{txt:'Ok', ret:1}]);
+  const nova = ops[Math.floor(Math.random() * ops.length)];
+  S.itens.dado--;
+  r.prog = r.prog.map(x => x === k ? nova.id : x);
+  (r.fora = r.fora || []).push(k);
+  (r.dentro = r.dentro || []).push(nova.id);
+  salvar(); render();
+  avisar(`<div class="big">${ic('dado','64px')}</div><h3>Saiu no dado:</h3><p><b>${esc(nova.titulo)}</b></p>${tagsMetas(nova.metas)}`);
+}
+// vida real
+function formRecompensa(id){
+  const x = id ? S.recompensas.find(r => r.id === id) : {nome:'', preco:'', obs:''};
+  sheetEl.innerHTML = `<div class="sheet"><h3>${id?'Editar recompensa':'Nova recompensa'}</h3><div class="card">
+    <label>Recompensa</label><input id="rNome" value="${esc(x.nome)}" placeholder="Ex.: Pedir um lanche">
+    <label>Preço (moedas)</label><input id="rPreco" type="number" inputmode="numeric" value="${x.preco}" placeholder="300">
+    <div class="small">Referência: ~25 moedas por dia de quests (~175 por semana).</div>
+    <label>Observação (opcional)</label><input id="rObs" value="${esc(x.obs||'')}" placeholder="Ex.: só no fim de semana">
+    <button class="btn" data-a="salvarRecompensa" data-id="${id||''}">Salvar</button>
+    ${id?`<button class="btn bad" data-a="apagarRecompensa" data-id="${id}">Apagar recompensa</button>`:''}
+    <button class="btn sec" data-a="fechar">Cancelar</button></div></div>`;
+}
+function salvarRecompensa(id){
+  const nome = document.getElementById('rNome').value.trim();
+  const preco = Math.round(parseFloat(document.getElementById('rPreco').value));
+  if (!nome) return janela('<h3>Dê um nome à recompensa</h3>', [{txt:'Ok', ret:1}]);
+  if (!(preco > 0)) return janela('<h3>Informe o preço em moedas</h3>', [{txt:'Ok', ret:1}]);
+  const dados = { nome, preco, obs: document.getElementById('rObs').value.trim() };
+  if (id) Object.assign(S.recompensas.find(r => r.id === id), dados);
+  else S.recompensas.push({ id:uid(), ...dados });
+  salvar(); fecharSheet(); render();
+}
+async function resgatar(id){
+  const x = S.recompensas.find(r => r.id === id);
+  if (!x || S.moedas < x.preco) return;
+  if (!(await confirmar(`Resgatar "${esc(x.nome)}" por ${x.preco} moedas?`, 'Resgatar', 'ok'))) return;
+  S.moedas -= x.preco;
+  S.resgates.unshift({ id:uid(), rid:x.id, nome:x.nome, preco:x.preco, data:hoje() });
+  salvar(); render();
+  avisar(`<div class="big">${ic('trofeu','64px')}</div><h3 class="px">RECOMPENSA!</h3><p><b>${esc(x.nome)}</b></p><p>Aproveite, você mereceu.</p>`);
+}
+function desfazerResgate(id){
+  const g = S.resgates.find(r => r.id === id);
+  if (!g || g.data !== hoje()) return;
+  S.moedas += g.preco; S.resgates = S.resgates.filter(r => r.id !== id);
+  salvar(); render();
+}
+
 /* ===================== JANELAS ===================== */
 const modalEl = document.getElementById('modal');
 function janela(html, botoes){
@@ -579,7 +683,7 @@ function avisoMeta(m){
 
 
 /* ===================== ÍCONES EM PIXEL ART ===================== */
-const ICOR = {K:'#231a2e',W:'#f4f0e6',L:'#a9b4c8',G:'#f0c83c',Y:'#c9902a',R:'#e04848',O:'#f08c2a',B:'#9a5a2a',b:'#6e3e1c',U:'#4a7fe0'};
+const ICOR = {K:'#231a2e',W:'#f4f0e6',L:'#a9b4c8',G:'#f0c83c',Y:'#c9902a',R:'#e04848',O:'#f08c2a',B:'#9a5a2a',b:'#6e3e1c',U:'#4a7fe0',P:'#ecd9a6',D:'#b8894a'};
 const ICONES = {
   espada:["..........WW",".........WWL","........WWL.",".......WWL..","......WWL...",".....WWL....",".G..WWL.....",".GGWWL......","..GGL.......","..BGGG......",".BB..G......","BB.........."],
   alvo:["...KKKKKK...","..KRRRRRRK..",".KRWWWWWWRK.","KRWRRRRRRWRK","KRWRWWWWRWRK","KRWRWRRWRWRK","KRWRWRRWRWRK","KRWRWWWWRWRK","KRWRRRRRRWRK",".KRWWWWWWRK.","..KRRRRRRK..","...KKKKKK..."],
@@ -594,6 +698,8 @@ const ICONES = {
   subir:[".....KK.....","....KGGK....","...KGGGGK...","..KGGGGGGK..",".KGGGGGGGGK.",".KKKKGGKKKK.","....KGGK....","....KGGK....","....KGGK....","....KGGK....","....KKKK....","............"],
   check:["............","............",".........WW.","........WWW.",".......WWW..",".WW...WWW...",".WWW.WWW....","..WWWWW.....","...WWW......","....W.......","............","............"],
   escudo:["..KKKKKKKK..",".KUUUUUUUUK.",".KUWUUUUUUK.",".KUWUUGUUUK.",".KUUUGGGUUK.",".KUUGGGGGUK.",".KUUUGGGUUK.","..KUUUGUUK..","..KUUUUUUK..","...KUUUUK...","....KUUK....",".....KK....."],
+  pergaminho:["..KKKKKKKK..",".KDDDDDDDDK.",".KPPPPPPPPK.","..KPKKKKPK..","..KPPPPPPK..","..KPKKKPPK..","..KPPPPPPK..","..KPKKKKPK..","..KPPPPPPK..",".KPPPPPPPPK.",".KDDDDDDDDK.","..KKKKKKKK.."],
+  dado:["............",".KKKKKKKKKK.",".KWWWWWWWLK.",".KWRWWWWRLK.",".KWWWWWWWLK.",".KWWWRRWWLK.",".KWWWRRWWLK.",".KWWWWWWWLK.",".KWRWWWWRLK.",".KWWWWWWWLK.",".KLLLLLLLLK.",".KKKKKKKKKK."],
   nota:["..KKKKKKK...","..KWWWWWKK..","..KWKKKWWK..","..KWWWWWWK..","..KWKKKKWK..","..KWWWWWWK..","..KWKKKKWK..","..KWWWWWWK..","..KWKKKWWK..","..KWWWWWWK..","..KKKKKKKK..","............"],
 };
 const _icCache = {};
@@ -651,8 +757,8 @@ function tagsMetas(ids){
 }
 function telaMissoes(){
   const r = diaDeHoje();
-  const qs = r.prog.map(quest).filter(Boolean);
-  const feitas = qs.filter(q => r.feitas[q.id]).length;
+  const qs = r.prog.map(k => ({k, q:quest(qidDe(k))})).filter(x => x.q);
+  const feitas = qs.filter(x => r.feitas[x.k]).length;
   const n = qs.length;
   let status = '';
   if (n){
@@ -667,16 +773,18 @@ function telaMissoes(){
     h += `<div class="card"><b>Bem-vindo ao Life UP!</b><p>Comece criando uma meta na aba <b>Metas</b>. Depois adicione quests a ela: as quests do dia aparecem aqui.</p>
       <button class="btn" data-a="tab" data-id="metas">Ir para Metas</button></div>`;
   } else if (!n){
-    h += `<div class="card vazio" style="color:var(--muted)">Nenhuma quest para hoje.<br><span class="small">Adicione quests nas suas metas (aba Metas).</span></div>`;
+    h += `<div class="card vazio" style="color:var(--muted)">Nenhuma quest para hoje.${(r.adiou||[]).length?`<br><span class="small">${ic('pergaminho')} Adiada para amanhã: ${r.adiou.map(id => esc((quest(id)||{}).titulo||'')).join(', ')}</span>`:''}<br><span class="small">Adicione quests nas suas metas (aba Metas).</span></div>`;
   } else {
-    h += `<div class="card">${qs.map(q => {
-      const e = r.feitas[q.id];
+    h += `<div class="card">${qs.map(({k, q}) => {
+      const e = r.feitas[k];
       const xp = e ? (e.xpQuest ?? e.g.xp) : Math.round(DIF[q.dif].xp*(1+bonusSeq()));
       return `<div class="quest">
-        <button class="check ${e?'on':''}" data-a="${e?'desfazer':'concluir'}" data-id="${q.id}">${e?ic('check','26px'):''}</button>
-        <div class="qtxt ${e?'done':''}"><b>${esc(q.titulo)}</b>${tagsMetas(q.metas)}</div>
+        <button class="check ${e?'on':''}" data-a="${e?'desfazer':'concluir'}" data-id="${k}">${e?ic('check','26px'):''}</button>
+        <div class="qtxt ${e?'done':''}" ${e?'':`data-a="acoesQuest" data-id="${k}"`}><b>${esc(q.titulo)}</b>${String(k).includes('@')?`<span class="tag" style="background:#b8894a">adiada de ontem</span>`:''}${tagsMetas(q.metas)}</div>
         <div class="rw">${DIF[q.dif].nome}<br><b>+${xp} XP</b></div></div>`;
-    }).join('')}<div class="small" style="margin-top:8px">${status}</div></div>`;
+    }).join('')}<div class="small" style="margin-top:8px">${status}</div>
+    ${(r.adiou||[]).length ? `<div class="small" style="margin-top:4px">${ic('pergaminho')} Adiada para amanhã: ${r.adiou.map(id => esc((quest(id)||{}).titulo||'')).join(', ')}</div>`:''}
+    <div class="small" style="margin-top:4px">Toque no nome de uma quest para adiar ou trocar.</div></div>`;
   }
   // extras
   const pagas = r.extras.filter(x => x.feita && x.moedas > 0).length;
@@ -777,8 +885,38 @@ function telaEmBreve(nome, txt){
   return `<h2>${nome}</h2><div class="card"><b>Em breve</b><p>${txt}</p></div>`;
 }
 function telaLoja(){
-  return `<h2>Loja</h2><div class="card"><p>Você tem <b>${S.moedas} ${ic('moeda')}</b>.</p>
-    <p class="small">A loja (escudo, pergaminho, dado e recompensas da vida real) chega na próxima fase. Suas moedas já ficam guardadas.</p></div>`;
+  let h = `<h2>Loja</h2><div class="resumo"><span>Seu saldo</span><b class="px" style="font-size:1.1rem">${ic('moeda')} ${S.moedas}</b></div>
+    <div class="sub"><button class="chip ${ui.loja==='itens'?'on':''}" data-a="abaLoja" data-id="itens">Itens</button>
+    <button class="chip ${ui.loja==='vida'?'on':''}" data-a="abaLoja" data-id="vida">Vida real</button></div>`;
+  if (ui.loja === 'itens'){
+    h += Object.entries(ITENS).map(([k, it]) => {
+      const tem = qtdItem(k), cheio = tem >= it.max, falta = it.preco - S.moedas;
+      const btn = cheio ? `<button class="btn sec" style="opacity:.6" disabled>Estoque cheio (${tem}/${it.max})</button>`
+        : falta > 0 ? `<button class="btn sec" style="opacity:.6" disabled>Faltam ${falta} ${ic('moeda')}</button>`
+        : `<button class="btn" data-a="comprar" data-id="${k}">Comprar · ${it.preco} ${ic('moeda')}</button>`;
+      return `<div class="card"><div style="display:flex;gap:12px;align-items:center">
+        <div style="flex:none">${ic(k,'48px')}</div>
+        <div style="flex:1;min-width:0"><b>${it.nome}</b><div class="small">${it.desc}</div>
+        <div class="small" style="margin-top:4px">Você tem <b>${tem}/${it.max}</b> · ${it.preco} ${ic('moeda')}</div></div></div>${btn}</div>`;
+    }).join('');
+    return h;
+  }
+  h += S.recompensas.length ? S.recompensas.map(x => {
+    const falta = x.preco - S.moedas;
+    return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px">
+      <div style="min-width:0"><b>${esc(x.nome)}</b>${x.obs?`<div class="small">${esc(x.obs)}</div>`:''}</div>
+      <b class="px" style="white-space:nowrap">${x.preco} ${ic('moeda')}</b></div>
+      ${falta > 0 ? `<button class="btn sec" style="opacity:.6" disabled>Faltam ${falta} ${ic('moeda')}</button>`
+        : `<button class="btn ok" data-a="resgatar" data-id="${x.id}">Resgatar</button>`}
+      <button class="link" data-a="editarRecompensa" data-id="${x.id}">editar</button></div>`;
+  }).join('') : `<div class="card"><b>Suas recompensas</b><p class="small">Crie recompensas para você mesmo e defina o preço em moedas. Ex.: "Pedir um lanche" (300), "Tarde livre de jogo" (500), "Comprar um livro" (1.500).</p></div>`;
+  h += `<button class="btn" data-a="novaRecompensa">+ Nova recompensa</button>`;
+  if (S.resgates.length){
+    h += `<h2>Resgatadas</h2><div class="card">${S.resgates.slice(0, 15).map(g => `<div class="quest">
+      <div class="qtxt"><b>${esc(g.nome)}</b><span class="small">${fmtData(g.data)}</span></div>
+      <div class="rw">-${g.preco} ${ic('moeda')}${g.data === hoje() ? `<br><button class="link" data-a="desfazerResgate" data-id="${g.id}">desfazer</button>`:''}</div></div>`).join('')}</div>`;
+  }
+  return h;
 }
 function telaPerfil(){
   const nv = nivel(S.xp);
@@ -799,6 +937,10 @@ function telaPerfil(){
         <div><div class="px" style="font-size:1.3rem">${ic('moeda')} ${S.moedas}</div><div class="small">moedas</div></div>
         <div><div class="px" style="font-size:1.3rem">${ic('bau')} ${S.baus}</div><div class="small">baús guardados</div></div>
         <div><div class="px" style="font-size:1.3rem">${ic('escudo')} ${S.escudos}/${ESCUDOS_MAX}</div><div class="small">escudos</div></div>
+      </div>
+      <div class="row" style="text-align:center;margin-top:10px">
+        <div><div class="px" style="font-size:1.3rem">${ic('pergaminho')} ${S.itens.pergaminho||0}</div><div class="small">pergaminhos</div></div>
+        <div><div class="px" style="font-size:1.3rem">${ic('dado')} ${S.itens.dado||0}</div><div class="small">dados</div></div>
       </div></div>
     <h2>Nível por categoria</h2><div class="card">`;
   h += CATS.map(c => { const v = nivel(S.catXp[c.id]||0);
@@ -1010,6 +1152,16 @@ const acoes = {
   naoCumprida: async id => { if (await confirmar('Marcar como não cumprida? O XP e as moedas das quests continuam; só o bônus de conclusão é perdido.', 'Não cumprida')) metaManual(id, 'nao'); },
   reabrir: async id => { if (await confirmar('Reabrir esta meta? Se ela deu bônus de conclusão, ele é desfeito.', 'Reabrir')) reabrirMeta(id); },
   fechar: fecharSheet,
+  abaLoja: id => { ui.loja = id; render(); },
+  comprar, acoesQuest, resgatar,
+  novaRecompensa: () => formRecompensa(null),
+  editarRecompensa: id => formRecompensa(id),
+  salvarRecompensa,
+  apagarRecompensa: async id => {
+    if (!(await confirmar('Apagar esta recompensa?', 'Apagar', 'bad'))) return;
+    S.recompensas = S.recompensas.filter(r => r.id !== id); salvar(); fecharSheet(); render();
+  },
+  desfazerResgate: async id => { if (await confirmar('Desfazer este resgate? As moedas voltam.', 'Desfazer')) desfazerResgate(id); },
   verResumo: id => { const R = S.resumos[id]; if (R) janela(htmlResumo(R), [{txt:'Fechar', ret:1}]); },
   exportar, importar,
   apagarTudo: async () => {
