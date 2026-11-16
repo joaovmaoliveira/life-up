@@ -114,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.5.1';
+const VERSAO = '0.5.2';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -150,6 +150,7 @@ const EXTRA_MOEDAS = 3, EXTRA_MAX_PAGAS = 3;
 const VIRADA_HORA = 5;
 const BONUS_SEMANAL = 0.15, SEMANA_MAX_FALHAS = 1;   // semana com pelo menos 6 de 7 dias cumpridos → +15% do XP de quests
 const ESCUDOS_MAX = 3, ESCUDO_EXCEDENTE_MOEDAS = 200;
+const VIDA_REAL_ATIVA = false;   // aba Vida real da Loja: pronta, mas mostrando "Em breve" por enquanto
 const ITENS = {
   escudo:     {nome:'Escudo',                 preco:500, max:ESCUDOS_MAX, desc:'Protege a sequência em 1 dia não cumprido. O app pergunta antes de usar.'},
   pergaminho: {nome:'Pergaminho de adiamento', preco:50,  max:5, desc:'Passa 1 quest diária para amanhã, sem penalidade. Use tocando no nome da quest.'},
@@ -914,6 +915,7 @@ function telaLoja(){
     }).join('');
     return h;
   }
+  if (!VIDA_REAL_ATIVA) return h + `<div class="card"><b>Em breve</b><p class="small">Aqui você vai trocar moedas por recompensas da vida real que você mesmo cria (ex.: pedir um lanche, uma tarde livre, comprar um livro). Suas moedas continuam guardadas.</p></div>`;
   h += S.recompensas.length ? S.recompensas.map(x => {
     const falta = x.preco - S.moedas;
     return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px">
