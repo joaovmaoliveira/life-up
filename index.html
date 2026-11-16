@@ -114,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.4.2';
+const VERSAO = '0.4.3';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -149,7 +149,7 @@ const LEVELUP_MOEDAS = 50;
 const EXTRA_MOEDAS = 3, EXTRA_MAX_PAGAS = 3;
 const VIRADA_HORA = 5;
 const BONUS_SEMANAL = 0.15, SEMANA_MAX_FALHAS = 1;   // semana com pelo menos 6 de 7 dias cumpridos → +15% do XP de quests
-const ESCUDOS_MAX = 3;
+const ESCUDOS_MAX = 3, ESCUDO_EXCEDENTE_MOEDAS = 200;   // escudo ganho com estoque cheio vira moedas
 const SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const FREQ = {dias:'Diária (dias da semana)', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual'};
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -487,17 +487,14 @@ function catsDaSemana(L){
 function fecharSemana(ini, mostrar){
   const c = contarSemana(ini), L = S.sem[ini] || {xp:0, xq:0, m:0, qc:{}};
   const R = { ini, ok:c.ok, falhas:c.falhas, comQuest:c.comQuest, dias:c.dias.map(x => x.r), bonus:0, escudo:0, cheio:false };
-  // bônus semanal: +15% do XP de quests, se faltou no máximo 1 dia
-  if (c.comQuest > 0 && c.falhas <= SEMANA_MAX_FALHAS && L.xq > 0){
+  // semana cumprida (no máximo 1 dia falho): bônus de +15% do XP de quests e +1 escudo
+  if (c.comQuest > 0 && c.falhas <= SEMANA_MAX_FALHAS){
     const g = ganhoVazio(); g.sem = ini;
     g.xp = Math.round(L.xq * BONUS_SEMANAL);
     for (const k in L.qc) g.cats[k] = Math.round(L.qc[k] * BONUS_SEMANAL);
+    if (ganharEscudo(g)) R.escudo = 1; else R.cheio = true;
     fecharLevel(g); aplicar(g);
     R.bonus = g.xp; if (g.lv) R.lv = g;
-  }
-  // escudo: semana cumprida (mesma regra do bônus: no máximo 1 dia falho)
-  if (c.comQuest > 0 && c.falhas <= SEMANA_MAX_FALHAS){
-    if (S.escudos < ESCUDOS_MAX){ S.escudos++; R.escudo = 1; } else R.cheio = true;
   }
   const L2 = S.sem[ini] || L;
   R.xp = L2.xp; R.moedas = L2.m; R.seq = S.seq.atual; R.recorde = S.seq.recorde; R.escudos = S.escudos;
@@ -506,6 +503,11 @@ function fecharSemana(ini, mostrar){
   S.resumos[ini] = R;
   if (mostrar) avisoResumo(R);
   if (R.lv && mostrar) avisoLevel(R.lv);
+}
+function ganharEscudo(g){
+  // vale para semana, baú e conquistas: com estoque cheio, o escudo vira moedas
+  if (S.escudos < ESCUDOS_MAX){ S.escudos++; return true; }
+  g.moedas += ESCUDO_EXCEDENTE_MOEDAS; return false;
 }
 function fecharSemanas(){
   const h = hoje();
@@ -534,7 +536,7 @@ function htmlResumo(R){
   h += linha(`Moedas`, `+${R.moedas} ${ic('moeda')}`);
   h += linha(`Sequência`, `${R.seq} ${ic('fogo')} (recorde ${R.recorde})`);
   h += linha(`Escudo`, R.escudo ? `+1 ${ic('escudo')} (${R.escudos}/${ESCUDOS_MAX})`
-    : R.cheio ? `estoque cheio (${ESCUDOS_MAX}/${ESCUDOS_MAX})`
+    : R.cheio ? `estoque cheio → +${ESCUDO_EXCEDENTE_MOEDAS} ${ic('moeda')}`
     : R.comQuest ? 'não ganhou' : '—');
   if (R.dest) h += linha('Destaque', `<span class="tag" style="background:${cat(R.dest).cor}">${cat(R.dest).nome}</span>`);
   if (R.aten) h += linha('Atenção', `<span class="tag" style="background:${cat(R.aten).cor}">${cat(R.aten).nome}</span>`);
@@ -716,7 +718,7 @@ function painelSemana(ini){
   const bon = c.falhas > SEMANA_MAX_FALHAS ? `<span style="color:var(--bad)">perdido nesta semana</span>`
     : `+${Math.round(L.xq*BONUS_SEMANAL)} XP até agora · ${restFalhas ? 'pode falhar mais 1 dia' : 'não pode falhar mais nenhum dia'}`;
   const esc_ = c.falhas > SEMANA_MAX_FALHAS ? `<span style="color:var(--bad)">perdido nesta semana</span>`
-    : S.escudos >= ESCUDOS_MAX ? `estoque cheio (${ESCUDOS_MAX}/${ESCUDOS_MAX})`
+    : S.escudos >= ESCUDOS_MAX ? `estoque cheio: vira +${ESCUDO_EXCEDENTE_MOEDAS} ${ic('moeda')} se falhar no máx. 1 dia`
     : `+1 no fim da semana se falhar no máx. 1 dia`;
   const ult = S.resumos[addDias(ini, -7)];
   return `<div class="card"><b>Esta semana</b>${tirinhaDias(ini, c.dias.map(x => x.r), true)}
@@ -809,7 +811,7 @@ function telaConfig(){
       <button class="btn" data-a="exportar">Exportar backup</button>
       <button class="btn sec" data-a="importar">Importar backup</button>
       <input type="file" id="arqImport" accept=".json,application/json" style="display:none"></div>
-    <div class="card"><b>Escudos ${ic('escudo')} ${S.escudos}/${ESCUDOS_MAX}</b><p class="small">Se um dia não for cumprido e você tiver sequência, o app pergunta se quer usar um escudo para mantê-la. Ganhe 1 por semana cumprida: falhando no máximo 1 dia (máx. ${ESCUDOS_MAX} guardados). O dia protegido por escudo conta como falha para o bônus e para o escudo da semana.</p></div>
+    <div class="card"><b>Escudos ${ic('escudo')} ${S.escudos}/${ESCUDOS_MAX}</b><p class="small">Se um dia não for cumprido e você tiver sequência, o app pergunta se quer usar um escudo para mantê-la. Ganhe 1 por semana cumprida: falhando no máximo 1 dia (máx. ${ESCUDOS_MAX} guardados; com o estoque cheio, o escudo ganho vira ${ESCUDO_EXCEDENTE_MOEDAS} moedas). O dia protegido por escudo conta como falha para o bônus e para o escudo da semana.</p></div>
     <div class="card"><b>Virada do dia</b><p class="small">O dia vira às ${pad(VIRADA_HORA)}h (o que você marcar de madrugada conta para o dia anterior).</p></div>
     <div class="card"><b>Zona de perigo</b><p class="small">Apaga metas, quests, XP, moedas e histórico. Use para limpar os testes.</p>
       <button class="btn bad" data-a="apagarTudo">Apagar tudo</button></div>
