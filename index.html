@@ -114,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.5.0';
+const VERSAO = '0.5.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -153,7 +153,7 @@ const ESCUDOS_MAX = 3, ESCUDO_EXCEDENTE_MOEDAS = 200;
 const ITENS = {
   escudo:     {nome:'Escudo',                 preco:500, max:ESCUDOS_MAX, desc:'Protege a sequência em 1 dia não cumprido. O app pergunta antes de usar.'},
   pergaminho: {nome:'Pergaminho de adiamento', preco:50,  max:5, desc:'Passa 1 quest diária para amanhã, sem penalidade. Use tocando no nome da quest.'},
-  dado:       {nome:'Dado da troca',           preco:100, max:5, desc:'Troca 1 quest do dia por outra sorteada da mesma meta e dificuldade. Use tocando no nome da quest.'},
+  dado:       {nome:'Dado da troca',           preco:100, max:5, desc:'Troca 1 quest do dia: sorteia outra da mesma meta; se não houver, você escreve a troca (vale o mesmo XP). Use tocando no nome da quest.'},
 };   // escudo ganho com estoque cheio vira moedas
 const SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const FREQ = {dias:'Diária (dias da semana)', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual'};
@@ -594,21 +594,34 @@ function adiarQuest(k){
 }
 function opcoesTroca(k){
   const q = quest(qidDe(k)), r = diaDeHoje(), usadas = new Set([...r.prog, ...(r.fora||[])].map(qidDe));   // não sorteia quest já tirada do dia
-  return S.quests.filter(o => o.ativa && o.id !== q.id && (o.freq||'dias') === 'dias' && o.dif === q.dif &&
+  return S.quests.filter(o => o.ativa && !o.avulsa && o.id !== q.id && (o.freq||'dias') === 'dias' &&
     o.metas.some(m => q.metas.includes(m)) && !usadas.has(o.id) && o.metas.some(id => metaViva(meta(id))));
 }
-function trocarQuest(k){
-  const r = diaDeHoje();
-  if (!(S.itens.dado > 0) || r.feitas[k]) return;
+async function trocarQuest(k){
+  const r = diaDeHoje(), q = quest(qidDe(k));
+  if (!(S.itens.dado > 0) || r.feitas[k] || !q) return;
   const ops = opcoesTroca(k);
-  if (!ops.length) return janela(`<h3>Nada para trocar</h3><p class="small">Não há outra quest diária da mesma meta e dificuldade (${DIF[quest(qidDe(k)).dif].nome}). O dado não foi gasto.</p>`, [{txt:'Ok', ret:1}]);
-  const nova = ops[Math.floor(Math.random() * ops.length)];
+  let nova;
+  if (ops.length){
+    // 1º: sorteia outra quest diária da mesma meta (qualquer dificuldade)
+    nova = ops[Math.floor(Math.random() * ops.length)];
+  } else {
+    // 2º: não há o que sortear → você escreve a troca (mesma meta, mesmo XP e moedas)
+    const t = await janela(`<div class="big">${ic('dado','56px')}</div><h3>Escreva a troca</h3>
+      <p class="small">Não há outra quest da mesma meta para sortear. O que você vai fazer no lugar de <b>${esc(q.titulo)}</b>?</p>
+      <input id="trocaTxt" placeholder="Ex.: Nadar 30 min" style="margin-top:6px">
+      <p class="small">Vale o mesmo: ${DIF[q.dif].nome} · +${DIF[q.dif].xp} XP · +${DIF[q.dif].m} moedas.</p>`,
+      [{txt:'Trocar', val:() => document.getElementById('trocaTxt').value.trim()}, {txt:'Cancelar', cls:'sec', ret:null}]);
+    if (!t) return;
+    nova = { id:uid(), titulo:t, metas:[...q.metas], dif:q.dif, freq:'dias', dias:[], valor:q.valor, ativa:false, avulsa:true, criada:hoje() };
+    S.quests.push(nova);
+  }
   S.itens.dado--;
   r.prog = r.prog.map(x => x === k ? nova.id : x);
   (r.fora = r.fora || []).push(k);
   (r.dentro = r.dentro || []).push(nova.id);
   salvar(); render();
-  avisar(`<div class="big">${ic('dado','64px')}</div><h3>Saiu no dado:</h3><p><b>${esc(nova.titulo)}</b></p>${tagsMetas(nova.metas)}`);
+  avisar(`<div class="big">${ic('dado','64px')}</div><h3>${nova.avulsa ? 'Troca feita:' : 'Saiu no dado:'}</h3><p><b>${esc(nova.titulo)}</b></p>${tagsMetas(nova.metas)}`);
 }
 // vida real
 function formRecompensa(id){
@@ -836,7 +849,7 @@ function painelSemana(ini){
 }
 function cardMeta(m){
   const c = cat(m.cat);
-  const qs = S.quests.filter(q => q.metas.includes(m.id));
+  const qs = S.quests.filter(q => q.metas.includes(m.id) && !q.avulsa);
   const aberta = ui.aberta === m.id;
   let corpo = '';
   if (m.tipo === 'auto'){
