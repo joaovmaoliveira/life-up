@@ -114,7 +114,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.4.0';
+const VERSAO = '0.4.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -235,22 +235,38 @@ function diaCumprido(d){
 }
 const resultadoDia = d => S.res[d] || (d < hoje() ? ({true:'ok', false:'falha'})[diaCumprido(d)] : null) || null;
 function avaliarSequencia(){
-  const h = hoje(), usados = [];
+  // avalia os dias até ontem; se um dia falhou e dá para usar escudo, para e devolve esse dia (o usuário decide)
+  const h = hoje();
   let d = addDias(S.seq.ultimo, 1);
   while (d < h){
     const ok = diaCumprido(d);
     if (ok === true){
       S.seq.atual++; S.seq.recorde = Math.max(S.seq.recorde, S.seq.atual); S.res[d] = 'ok';
     } else if (ok === false){
-      if (S.seq.atual > 0 && S.escudos > 0){ S.escudos--; S.res[d] = 'escudo'; usados.push(d); }
-      else { S.seq.atual = 0; S.res[d] = 'falha'; }
+      if (S.seq.atual > 0 && S.escudos > 0) return d;
+      S.seq.atual = 0; S.res[d] = 'falha';
     }
+    S.seq.ultimo = d;
     d = addDias(d, 1);
   }
   S.seq.ultimo = addDias(h, -1);
-  if (usados.length) avisar(`<div class="big">${ic('escudo','64px')}</div><h3 class="px">ESCUDO USADO!</h3>
-    <p>${usados.map(fmtData).join(', ')}: o dia não foi cumprido, mas o escudo protegeu sua sequência.</p>
-    <p>Sequência mantida: <b>${S.seq.atual}</b> ${ic('fogo')}</p><p class="small">Escudos restantes: ${S.escudos}/${ESCUDOS_MAX}</p>`);
+  return null;
+}
+function decidirEscudo(d, usar){
+  if (usar){ S.escudos--; S.res[d] = 'escudo'; }
+  else { S.seq.atual = 0; S.res[d] = 'falha'; }
+  S.seq.ultimo = d;
+}
+const perguntarEscudo = d => new Promise(res => {
+  filaAvisos = filaAvisos.then(() => janela(`<div class="big">${ic('escudo','64px')}</div><h3 class="px">USAR ESCUDO?</h3>
+    <p><b>${fmtData(d)}</b> não foi cumprido.</p>
+    <p>Usar 1 escudo para manter sua sequência de <b>${S.seq.atual}</b> ${ic('fogo')}?</p>
+    <p class="small">Você tem ${S.escudos}/${ESCUDOS_MAX}. Se não usar, a sequência zera e o escudo fica guardado.</p>`,
+    [{txt:'Usar escudo', ret:true}, {txt:'Deixar zerar', cls:'sec', ret:false}]).then(res));
+});
+async function processarSequencia(){
+  let d;
+  while ((d = avaliarSequencia())){ const usar = await perguntarEscudo(d); decidirEscudo(d, usar); salvar(); }
 }
 function diaDeHoje(){
   const h = hoje();
@@ -264,9 +280,12 @@ function sincronizarHoje(){
   r.prog = r.prog.filter(id => devem.has(id) || r.feitas[id]);
   devem.forEach(id => { if (!r.prog.includes(id)) r.prog.push(id); });
 }
-let diaAtual = null;
-function checarVirada(){
-  if (diaAtual !== hoje()){ avaliarSequencia(); fecharPeriodos(); fecharSemanas(); diaDeHoje(); diaAtual = hoje(); salvar(); render(); }
+let diaAtual = null, virando = false;
+async function checarVirada(){
+  if (virando || diaAtual === hoje()) return;
+  virando = true;
+  try { await processarSequencia(); fecharPeriodos(); fecharSemanas(); diaDeHoje(); diaAtual = hoje(); salvar(); render(); }
+  finally { virando = false; }
 }
 
 /* ===================== GANHOS (XP, moedas, baús) ===================== */
@@ -799,7 +818,7 @@ function telaConfig(){
       <button class="btn" data-a="exportar">Exportar backup</button>
       <button class="btn sec" data-a="importar">Importar backup</button>
       <input type="file" id="arqImport" accept=".json,application/json" style="display:none"></div>
-    <div class="card"><b>Escudos ${ic('escudo')} ${S.escudos}/${ESCUDOS_MAX}</b><p class="small">Usados sozinhos: se um dia não for cumprido e você tiver sequência, o escudo protege a sequência. Ganhe 1 por semana completando todas as quests semanais (máx. ${ESCUDOS_MAX} guardados). O dia protegido não conta como cumprido para o bônus semanal.</p></div>
+    <div class="card"><b>Escudos ${ic('escudo')} ${S.escudos}/${ESCUDOS_MAX}</b><p class="small">Se um dia não for cumprido e você tiver sequência, o app pergunta se quer usar um escudo para mantê-la. Ganhe 1 por semana completando todas as quests semanais (máx. ${ESCUDOS_MAX} guardados). O dia protegido não conta como cumprido para o bônus semanal.</p></div>
     <div class="card"><b>Virada do dia</b><p class="small">O dia vira às ${pad(VIRADA_HORA)}h (o que você marcar de madrugada conta para o dia anterior).</p></div>
     <div class="card"><b>Zona de perigo</b><p class="small">Apaga metas, quests, XP, moedas e histórico. Use para limpar os testes.</p>
       <button class="btn bad" data-a="apagarTudo">Apagar tudo</button></div>
@@ -945,7 +964,7 @@ function importar(){
       const dados = JSON.parse(await f.text());
       if (!dados || dados.v !== 1 || !Array.isArray(dados.metas)) throw 0;
       if (!(await confirmar('Substituir todos os dados atuais por este backup?', 'Substituir', 'bad'))) return;
-      S = dados; migrar(); avaliarSequencia(); fecharSemanas(); diaDeHoje(); salvar(); render();
+      S = dados; migrar(); diaAtual = null; salvar(); render(); await checarVirada();
       janela('<h3>Backup importado!</h3>', [{txt:'Ok', ret:1}]);
     } catch(e){ janela('<h3>Arquivo inválido</h3><p class="small">Escolha um arquivo de backup do Life UP (.json).</p>', [{txt:'Ok', ret:1}]); }
     inp.value = '';
