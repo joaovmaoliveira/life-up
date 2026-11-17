@@ -134,7 +134,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.6.0';
+const VERSAO = '0.6.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -213,9 +213,8 @@ const COSM = [
 ];
 const cosm = id => COSM.find(c => c.id === id);
 // chances do baú (decididas em 16/11/2026)
-const BAU = { cosmetico:.60, moedas:.25, item:.10, escudo:.05 };
+const BAU = { cosmetico:.85, item:.10, escudo:.05 };   // sem moedas no baú (decidido em 16/11/2026)
 const BAU_RAR = { c:.60, r:.30, l:.10 };
-const BAU_MOEDAS = [50, 150];
 
 const VIDA_REAL_ATIVA = false;   // aba Vida real da Loja: pronta, mas mostrando "Em breve" por enquanto
 const ITENS = {
@@ -742,19 +741,22 @@ function checarExclusivos(){
 }
 function sortearBau(){
   // devolve o prêmio e já aplica
-  const tipo = escolher(BAU), g = ganhoVazio(), P = {tipo};
+  let tipo = escolher(BAU);
+  const g = ganhoVazio();
+  if (tipo === 'item'){
+    // pergaminho ou dado; se os dois estiverem cheios, vira cosmético
+    const livres = ['pergaminho','dado'].filter(k => (S.itens[k]||0) < ITENS[k].max);
+    if (livres.length) var itemSorteado = sorteia(livres); else tipo = 'cosmetico';
+  }
+  const P = {tipo};
   if (tipo === 'cosmetico'){
     const rar = escolher(BAU_RAR), c = sorteia(COSM.filter(x => x.rar === rar));
     P.c = c;
     if (S.cos.tem[c.id]){ P.rep = true; P.frag = RAR[rar].frag; S.cos.frag += P.frag; }
     else S.cos.tem[c.id] = hoje();
-  } else if (tipo === 'moedas'){
-    P.moedas = BAU_MOEDAS[0] + Math.floor(Math.random() * (BAU_MOEDAS[1] - BAU_MOEDAS[0] + 1));
-    g.moedas += P.moedas;
   } else if (tipo === 'item'){
-    P.item = Math.random() < .5 ? 'pergaminho' : 'dado';
-    if ((S.itens[P.item]||0) < ITENS[P.item].max) S.itens[P.item] = (S.itens[P.item]||0) + 1;
-    else { P.cheio = true; P.moedas = ITENS[P.item].preco; g.moedas += P.moedas; }
+    P.item = itemSorteado;
+    S.itens[P.item] = (S.itens[P.item]||0) + 1;
   } else {
     P.item = 'escudo';
     if (!ganharEscudo(g)){ P.cheio = true; P.moedas = ESCUDO_EXCEDENTE_MOEDAS; }
@@ -771,7 +773,6 @@ function htmlPremio(P){
       <h3 class="px" style="margin-top:14px">${r.nome.toUpperCase()}!</h3><p><b>${P.c.nome}</b> · ${CATCOS[P.c.cat]}</p>
       ${P.rep ? `<p>Você já tem esta peça: virou <b>+${P.frag} fragmento${P.frag>1?'s':''}</b>.</p><p class="small">Fragmentos: ${S.cos.frag}</p>` : `<p>Peça nova na sua galeria!</p>`}</div>`;
   }
-  if (P.tipo === 'moedas') return `<div class="premio"><div class="raios"><div>${ic('moeda','110px')}</div></div><h3 class="px" style="margin-top:14px">+${P.moedas} MOEDAS</h3></div>`;
   const it = ITENS[P.item];
   return `<div class="premio"><div class="raios"><div>${ic(P.item,'110px')}</div></div><h3 class="px" style="margin-top:14px">${it.nome.toUpperCase()}</h3>
     ${P.cheio ? `<p>Estoque cheio: virou <b>+${P.moedas} ${ic('moeda')}</b>.</p>` : `<p>Guardado no seu inventário.</p>`}</div>`;
