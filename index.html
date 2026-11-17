@@ -134,7 +134,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.6.1';
+const VERSAO = '0.6.2';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -213,7 +213,8 @@ const COSM = [
 ];
 const cosm = id => COSM.find(c => c.id === id);
 // chances do baú (decididas em 16/11/2026)
-const BAU = { cosmetico:.85, item:.10, escudo:.05 };   // sem moedas no baú (decidido em 16/11/2026)
+const BAU = { cosmetico:.80, item:.15, escudo:.05 };   // sem moedas no baú (decidido em 16/11/2026)
+const BAU_ITEM_CHEIO = .5;   // item com estoque cheio vira metade do preço em moedas
 const BAU_RAR = { c:.60, r:.30, l:.10 };
 
 const VIDA_REAL_ATIVA = false;   // aba Vida real da Loja: pronta, mas mostrando "Em breve" por enquanto
@@ -743,11 +744,6 @@ function sortearBau(){
   // devolve o prêmio e já aplica
   let tipo = escolher(BAU);
   const g = ganhoVazio();
-  if (tipo === 'item'){
-    // pergaminho ou dado; se os dois estiverem cheios, vira cosmético
-    const livres = ['pergaminho','dado'].filter(k => (S.itens[k]||0) < ITENS[k].max);
-    if (livres.length) var itemSorteado = sorteia(livres); else tipo = 'cosmetico';
-  }
   const P = {tipo};
   if (tipo === 'cosmetico'){
     const rar = escolher(BAU_RAR), c = sorteia(COSM.filter(x => x.rar === rar));
@@ -755,8 +751,9 @@ function sortearBau(){
     if (S.cos.tem[c.id]){ P.rep = true; P.frag = RAR[rar].frag; S.cos.frag += P.frag; }
     else S.cos.tem[c.id] = hoje();
   } else if (tipo === 'item'){
-    P.item = itemSorteado;
-    S.itens[P.item] = (S.itens[P.item]||0) + 1;
+    P.item = sorteia(['pergaminho','dado']);
+    if ((S.itens[P.item]||0) < ITENS[P.item].max) S.itens[P.item] = (S.itens[P.item]||0) + 1;
+    else { P.cheio = true; P.moedas = Math.round(ITENS[P.item].preco * BAU_ITEM_CHEIO); g.moedas += P.moedas; }
   } else {
     P.item = 'escudo';
     if (!ganharEscudo(g)){ P.cheio = true; P.moedas = ESCUDO_EXCEDENTE_MOEDAS; }
