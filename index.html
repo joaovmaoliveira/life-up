@@ -98,13 +98,33 @@ nav button:not(.on) svg{opacity:.55}
 .ck input{width:28px;height:28px;flex:none;padding:0;border-radius:8px;background:#fff}
 .ck input:checked{background:var(--ok);box-shadow:inset 0 0 0 5px #fff}
 .modal{position:fixed;inset:0;background:rgba(10,8,20,.75);z-index:20;display:flex;align-items:center;justify-content:center;padding:20px}
-.modal .card{width:100%;max-width:380px;text-align:center}
+.modal .card{width:100%;max-width:380px;text-align:center;overflow:hidden}
 .modal .big{font-size:2.6rem;margin:4px 0}
 .modal h3{margin:6px 0}
 .catlv{display:flex;align-items:center;gap:8px;margin:8px 0}
 .catlv .nm{width:110px;font-size:.85rem}
 .catlv .bar{flex:1;margin:0;background:#fff}
 .catlv .n{width:44px;text-align:right;font-size:.85rem}
+/* baú e galeria */
+@keyframes tremer{0%,100%{transform:rotate(0)}20%{transform:rotate(-8deg) scale(1.03)}40%{transform:rotate(8deg) scale(1.06)}60%{transform:rotate(-10deg) scale(1.09)}80%{transform:rotate(10deg) scale(1.12)}}
+@keyframes surgir{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes girar{to{transform:rotate(360deg)}}
+.bau-anim{display:inline-block;animation:tremer .45s ease-in-out infinite}
+.premio{animation:surgir .45s ease-out both}
+.raios{position:relative;width:150px;height:150px;margin:0 auto}
+.raios::before{content:'';position:absolute;inset:-30px;border-radius:50%;
+  background:repeating-conic-gradient(rgba(255,255,255,.55) 0 12deg,transparent 12deg 30deg);animation:girar 6s linear infinite}
+.raios>div{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+.gal{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.slot{background:none;border:none;padding:0;text-align:center;color:#fff;font-size:.62rem;line-height:1.1}
+.slot .q{aspect-ratio:1;border:3px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;
+  box-shadow:2px 2px 0 #15121f;font-size:1.6rem;font-weight:700;color:var(--ink);position:relative}
+.slot.nao .q{filter:saturate(.35) brightness(.55)}
+.slot .q .sil{width:58%;height:58%;background:#15121f;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#6b6280;font-size:1.3rem}
+.slot .q .tc{font-size:.62rem;padding:0 3px;font-weight:700}
+.slot .nm{display:block;margin-top:3px;height:2.2em;overflow:hidden}
+.zoom{width:150px;height:150px;margin:6px auto;border:3px solid var(--line);border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:var(--muted)}
+.zoom.sil{background:#15121f;color:#6b6280;font-size:3rem}
 </style>
 </head>
 <body>
@@ -114,7 +134,7 @@ nav button:not(.on) svg{opacity:.55}
 
 <script>
 'use strict';
-const VERSAO = '0.5.2';
+const VERSAO = '0.6.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -150,6 +170,53 @@ const EXTRA_MOEDAS = 3, EXTRA_MAX_PAGAS = 3;
 const VIRADA_HORA = 5;
 const BONUS_SEMANAL = 0.15, SEMANA_MAX_FALHAS = 1;   // semana com pelo menos 6 de 7 dias cumpridos → +15% do XP de quests
 const ESCUDOS_MAX = 3, ESCUDO_EXCEDENTE_MOEDAS = 200;
+/* ===================== COSMÉTICOS E BAÚ ===================== */
+const RAR = {
+  c:{nome:'Comum',     cor:'#f0c83c', frag:1, custo:5},
+  r:{nome:'Raro',      cor:'#f08c2a', frag:2, custo:10},
+  l:{nome:'Lendário',  cor:'#9a5ce0', frag:5, custo:20},
+  x:{nome:'Exclusivo', cor:'#4a7fe0'},
+};
+const CATCOS = {cab:'Cabeça', roupa:'Roupa', mao:'Item de mão', pet:'Mascote', cen:'Cenário'};
+// ordem da galeria: comuns, raros, lendários, exclusivos
+const COSM = [
+  {id:'gorro',      nome:'Gorro de lã',             cat:'cab',   rar:'c'},
+  {id:'bandana',    nome:'Bandana de aventureiro',  cat:'cab',   rar:'c'},
+  {id:'elmo',       nome:'Elmo de cavaleiro',       cat:'cab',   rar:'c'},
+  {id:'pijama',     nome:'Pijama de dinossauro',    cat:'roupa', rar:'c'},
+  {id:'jaleco',     nome:'Jaleco',                  cat:'roupa', rar:'c'},
+  {id:'toalha',     nome:'Toalha de banho',         cat:'roupa', rar:'c'},
+  {id:'espadatreino',nome:'Espada de treino',       cat:'mao',   rar:'c'},
+  {id:'esteto',     nome:'Estetoscópio',            cat:'mao',   rar:'c'},
+  {id:'refri',      nome:'Lata de refri zero',      cat:'mao',   rar:'c'},
+  {id:'gato',       nome:'Gato amarelo',            cat:'pet',   rar:'c'},
+  {id:'pato',       nome:'Pato de borracha',        cat:'pet',   rar:'c'},
+  {id:'quarto',     nome:'Quarto aconchegante',     cat:'cen',   rar:'c'},
+  {id:'floresta',   nome:'Floresta',                cat:'cen',   rar:'c'},
+  {id:'chapeumago', nome:'Chapéu de mago',          cat:'cab',   rar:'r'},
+  {id:'armadura',   nome:'Armadura de cavaleiro',   cat:'roupa', rar:'r'},
+  {id:'cajado',     nome:'Cajado de mago',          cat:'mao',   rar:'r'},
+  {id:'arco',       nome:'Arco élfico',             cat:'mao',   rar:'r'},
+  {id:'coruja',     nome:'Coruja',                  cat:'pet',   rar:'r'},
+  {id:'raposa',     nome:'Raposa',                  cat:'pet',   rar:'r'},
+  {id:'consultorio',nome:'Consultório pediátrico',  cat:'cen',   rar:'r'},
+  {id:'biblioteca', nome:'Biblioteca arcana',       cat:'cen',   rar:'r'},
+  {id:'coroa',      nome:'Coroa dourada',           cat:'cab',   rar:'l'},
+  {id:'manto',      nome:'Manto de mago',           cat:'roupa', rar:'l'},
+  {id:'dragao',     nome:'Dragãozinho',             cat:'pet',   rar:'l'},
+  {id:'castelo',    nome:'Castelo nas nuvens',      cat:'cen',   rar:'l'},
+  {id:'capa',       nome:'Capa de herói',           cat:'roupa', rar:'x', como:'Chegar ao nível 10',          ok:() => nivel(S.xp).n >= 10},
+  {id:'espadafogo', nome:'Espada flamejante',       cat:'mao',   rar:'x', como:'Chegar ao nível 20',          ok:() => nivel(S.xp).n >= 20},
+  {id:'aureola',    nome:'Auréola dourada',         cat:'cab',   rar:'x', como:'Chegar ao nível 30',          ok:() => nivel(S.xp).n >= 30},
+  {id:'lobo',       nome:'Lobo prateado',           cat:'pet',   rar:'x', como:'100 dias de sequência',       ok:() => S.seq.recorde >= 100},
+  {id:'fenix',      nome:'Fênix',                   cat:'pet',   rar:'x', como:'Conquista "Fênix"',           ok:() => false},
+];
+const cosm = id => COSM.find(c => c.id === id);
+// chances do baú (decididas em 16/11/2026)
+const BAU = { cosmetico:.60, moedas:.25, item:.10, escudo:.05 };
+const BAU_RAR = { c:.60, r:.30, l:.10 };
+const BAU_MOEDAS = [50, 150];
+
 const VIDA_REAL_ATIVA = false;   // aba Vida real da Loja: pronta, mas mostrando "Em breve" por enquanto
 const ITENS = {
   escudo:     {nome:'Escudo',                 preco:500, max:ESCUDOS_MAX, desc:'Protege a sequência em 1 dia não cumprido. O app pergunta antes de usar.'},
@@ -200,10 +267,11 @@ function migrar(){
   if (!S.adiadas) S.adiadas = {};      // dia → quests adiadas para ele
   if (!S.recompensas) S.recompensas = [];
   if (!S.resgates) S.resgates = [];
+  if (!S.cos) S.cos = { tem:{}, frag:0 };   // cosméticos que você tem e fragmentos
 }
 let S;
 try { S = JSON.parse(localStorage.getItem(CHAVE)) || novoEstado(); } catch(e){ S = novoEstado(); }
-const salvar = () => localStorage.setItem(CHAVE, JSON.stringify(S));
+const salvar = () => { checarExclusivos(); localStorage.setItem(CHAVE, JSON.stringify(S)); };
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
 const ui = { tab:'missoes', sub:'dias', filtro:'todas', aberta:null, loja:'itens' };
@@ -662,6 +730,107 @@ function desfazerResgate(id){
   salvar(); render();
 }
 
+/* ===================== BAÚ, FRAGMENTOS E GALERIA ===================== */
+const sorteia = lista => lista[Math.floor(Math.random() * lista.length)];
+function escolher(chances){ let x = Math.random(), acc = 0; for (const k in chances){ acc += chances[k]; if (x < acc) return k; } return Object.keys(chances).pop(); }
+function checarExclusivos(){
+  if (!S || !S.cos) return;
+  COSM.filter(c => c.rar === 'x' && !S.cos.tem[c.id] && c.ok()).forEach(c => {
+    S.cos.tem[c.id] = hoje();
+    avisar(`<div class="big">${ic('trofeu','64px')}</div><h3 class="px">EXCLUSIVO!</h3><p>Você liberou <b>${c.nome}</b></p><p class="small">${c.como} · ${CATCOS[c.cat]}</p>`);
+  });
+}
+function sortearBau(){
+  // devolve o prêmio e já aplica
+  const tipo = escolher(BAU), g = ganhoVazio(), P = {tipo};
+  if (tipo === 'cosmetico'){
+    const rar = escolher(BAU_RAR), c = sorteia(COSM.filter(x => x.rar === rar));
+    P.c = c;
+    if (S.cos.tem[c.id]){ P.rep = true; P.frag = RAR[rar].frag; S.cos.frag += P.frag; }
+    else S.cos.tem[c.id] = hoje();
+  } else if (tipo === 'moedas'){
+    P.moedas = BAU_MOEDAS[0] + Math.floor(Math.random() * (BAU_MOEDAS[1] - BAU_MOEDAS[0] + 1));
+    g.moedas += P.moedas;
+  } else if (tipo === 'item'){
+    P.item = Math.random() < .5 ? 'pergaminho' : 'dado';
+    if ((S.itens[P.item]||0) < ITENS[P.item].max) S.itens[P.item] = (S.itens[P.item]||0) + 1;
+    else { P.cheio = true; P.moedas = ITENS[P.item].preco; g.moedas += P.moedas; }
+  } else {
+    P.item = 'escudo';
+    if (!ganharEscudo(g)){ P.cheio = true; P.moedas = ESCUDO_EXCEDENTE_MOEDAS; }
+  }
+  S.baus--;
+  if (g.moedas) aplicar(g);
+  salvar();
+  return P;
+}
+function htmlPremio(P){
+  if (P.tipo === 'cosmetico'){
+    const r = RAR[P.c.rar];
+    return `<div class="premio"><div class="raios"><div><div class="zoom" style="background:${r.cor};color:var(--ink);margin:0">${P.c.nome}</div></div></div>
+      <h3 class="px" style="margin-top:14px">${r.nome.toUpperCase()}!</h3><p><b>${P.c.nome}</b> · ${CATCOS[P.c.cat]}</p>
+      ${P.rep ? `<p>Você já tem esta peça: virou <b>+${P.frag} fragmento${P.frag>1?'s':''}</b>.</p><p class="small">Fragmentos: ${S.cos.frag}</p>` : `<p>Peça nova na sua galeria!</p>`}</div>`;
+  }
+  if (P.tipo === 'moedas') return `<div class="premio"><div class="raios"><div>${ic('moeda','110px')}</div></div><h3 class="px" style="margin-top:14px">+${P.moedas} MOEDAS</h3></div>`;
+  const it = ITENS[P.item];
+  return `<div class="premio"><div class="raios"><div>${ic(P.item,'110px')}</div></div><h3 class="px" style="margin-top:14px">${it.nome.toUpperCase()}</h3>
+    ${P.cheio ? `<p>Estoque cheio: virou <b>+${P.moedas} ${ic('moeda')}</b>.</p>` : `<p>Guardado no seu inventário.</p>`}</div>`;
+}
+const espera = ms => new Promise(r => setTimeout(r, ms));
+async function abrirBau(){
+  while (S.baus > 0){
+    modalEl.innerHTML = `<div class="modal"><div class="card"><div class="bau-anim" style="margin:10px 0">${ic('bau','140px')}</div><h3 class="px">Abrindo baú...</h3></div></div>`;
+    await espera(1300);
+    modalEl.innerHTML = `<div class="modal"><div class="card"><div class="premio">${ic('bauAberto','140px')}</div></div></div>`;
+    await espera(450);
+    const P = sortearBau(); render();
+    const v = await janela(htmlPremio(P), [
+      ...(S.baus > 0 ? [{txt:`Abrir outro (${S.baus})`, ret:'outro'}] : []),
+      {txt: S.baus > 0 ? 'Depois' : 'Continuar', cls: S.baus > 0 ? 'sec' : '', ret:null}]);
+    if (v !== 'outro') break;
+  }
+  render();
+}
+function slotGaleria(c){
+  const tem = !!S.cos.tem[c.id], r = RAR[c.rar];
+  return `<button class="slot ${tem?'':'nao'}" data-a="verCosm" data-id="${c.id}">
+    <div class="q" style="background:${r.cor}">${tem ? `<span class="tc">${CATCOS[c.cat]}</span>` : `<div class="sil">?</div>`}</div>
+    <span class="nm">${tem ? c.nome : '???'}</span></button>`;
+}
+function telaGaleria(){
+  const n = COSM.filter(c => S.cos.tem[c.id]).length;
+  return `<h2>Galeria</h2>
+    <div class="resumo"><span>Coleção: <b>${n}/${COSM.length}</b></span><span>Fragmentos: <b>${S.cos.frag}</b></span></div>
+    <div class="card" style="padding:8px 10px"><div class="small" style="display:flex;gap:10px;flex-wrap:wrap">
+      ${Object.values(RAR).map(r => `<span><span class="tag" style="background:${r.cor}">&nbsp;</span>${r.nome}</span>`).join('')}</div>
+      <div class="small" style="margin-top:4px">Toque numa peça para ver. Peças que faltam podem ser trocadas por fragmentos.</div></div>
+    <div class="gal">${COSM.map(slotGaleria).join('')}</div>
+    ${S.baus > 0 ? `<button class="btn" data-a="abrirBau" style="margin-top:14px">${ic('bau')} Abrir baú (${S.baus})</button>` : ''}
+    <button class="btn sec" data-a="tab" data-id="perfil" style="margin-top:8px">Voltar ao Perfil</button>`;
+}
+async function verCosm(id){
+  const c = cosm(id), tem = !!S.cos.tem[id], r = RAR[c.rar];
+  let corpo = `<div class="zoom ${tem?'':'sil'}">${tem ? 'imagem na parte 3b' : '?'}</div>
+    <h3>${tem ? c.nome : '???'}</h3><div class="small" style="color:var(--ink)">${r.nome} · ${CATCOS[c.cat]}</div>`;
+  const bts = [];
+  if (tem) corpo += `<p class="small" style="color:var(--ink)">Você tem esta peça. Equipar chega na parte 3b.</p>`;
+  else if (c.rar === 'x') corpo += `<p class="small" style="color:var(--ink)"><b>Como ganhar:</b> ${c.como}<br>Exclusivos não saem no baú nem trocam por fragmentos.</p>`;
+  else {
+    const falta = r.custo - S.cos.frag;
+    corpo += `<p class="small" style="color:var(--ink)">Trocar por <b>${r.custo} fragmentos</b> (você tem ${S.cos.frag}).</p>`;
+    bts.push(falta > 0 ? {txt:`Faltam ${falta} fragmentos`, cls:'sec', ret:null} : {txt:`Trocar por ${r.custo} fragmentos`, cls:'ok', ret:'trocar'});
+  }
+  bts.push({txt:'Fechar', cls:'sec', ret:null});
+  const p = janela(corpo, bts);
+  const card = modalEl.querySelector('.card'); if (card) card.style.background = r.cor;
+  const v = await p;
+  if (v === 'trocar' && S.cos.frag >= r.custo && !S.cos.tem[id]){
+    S.cos.frag -= r.custo; S.cos.tem[id] = hoje(); salvar(); render();
+    janela(`<div class="premio"><div class="raios"><div><div class="zoom" style="background:${r.cor};color:var(--ink);margin:0">${c.nome}</div></div></div>
+      <h3 class="px" style="margin-top:14px">NOVA PEÇA!</h3><p><b>${c.nome}</b></p></div>`, [{txt:'Continuar', ret:1}]);
+  }
+}
+
 /* ===================== JANELAS ===================== */
 const modalEl = document.getElementById('modal');
 function janela(html, botoes){
@@ -685,9 +854,12 @@ function pedirNumero(titulo, padrao, sub=''){
 let filaAvisos = Promise.resolve();
 const avisar = (html) => { filaAvisos = filaAvisos.then(() => janela(html, [{txt:'Continuar', ret:true}])); };
 function avisoLevel(g){
-  avisar(`<div class="big">${ic('subir','64px')}</div><h3 class="px">LEVEL UP!</h3><p>Você chegou ao <b>nível ${g.nivelNovo}</b></p>
-    <p>+${g.lv*LEVELUP_MOEDAS} ${ic('moeda')} · +${g.lv} baú${g.lv>1?'s':''} surpresa ${ic('bau')}</p>
-    <p class="small">Os baús ficam guardados no Perfil e poderão ser abertos na próxima fase do app.</p>`);
+  filaAvisos = filaAvisos.then(async () => {
+    const v = await janela(`<div class="big">${ic('subir','64px')}</div><h3 class="px">LEVEL UP!</h3><p>Você chegou ao <b>nível ${g.nivelNovo}</b></p>
+      <p>+${g.lv*LEVELUP_MOEDAS} ${ic('moeda')} · +${g.lv} baú${g.lv>1?'s':''} surpresa ${ic('bau')}</p>`,
+      [{txt:'Abrir baú agora', ret:true}, {txt:'Guardar para depois', cls:'sec', ret:false}]);
+    if (v) await abrirBau();
+  });
 }
 function avisoMeta(m){
   const b = BONUS_META[m.prazo];
@@ -711,6 +883,7 @@ const ICONES = {
   bau:["................","................","...KKKKKKKKKK...","..KBBBBBBBBBBK..","..KBbBBBBBBbBK..","..KGGGGGGGGGGK..","..KBBBBGGBBBBK..","..KKKKKGYKKKKK..","..KBBBBGYBBBBK..","..KBbBBBBBBbBK..","..KBbBBBBBBbBK..","..KGGGGGGGGGGK..","..KBBBBBBBBBBK..","..KKKKKKKKKKKK..","................","................"],
   subir:[".....KK.....","....KGGK....","...KGGGGK...","..KGGGGGGK..",".KGGGGGGGGK.",".KKKKGGKKKK.","....KGGK....","....KGGK....","....KGGK....","....KGGK....","....KKKK....","............"],
   check:["............","............",".........WW.","........WWW.",".......WWW..",".WW...WWW...",".WWW.WWW....","..WWWWW.....","...WWW......","....W.......","............","............"],
+  bauAberto:["................","..KKKKKKKKKKKK..","..KBBBBBBBBBBK..","..KBbBBBBBBbBK..","..KGGGGGGGGGGK..","..KKKKKKKKKKKK..","..KYGWGWWGWGYK..","..KGWWWWWWWWGK..","..KKKKKGYKKKKK..","..KBBBBGYBBBBK..","..KBbBBBBBBbBK..","..KBbBBBBBBbBK..","..KGGGGGGGGGGK..","..KBBBBBBBBBBK..","..KKKKKKKKKKKK..","................"],
   escudo:["..KKKKKKKK..",".KUUUUUUUUK.",".KUWUUUUUUK.",".KUWUUGUUUK.",".KUUUGGGUUK.",".KUUGGGGGUK.",".KUUUGGGUUK.","..KUUUGUUK..","..KUUUUUUK..","...KUUUUK...","....KUUK....",".....KK....."],
   pergaminho:["..KKKKKKKK..",".KDDDDDDDDK.",".KPPPPPPPPK.","..KPKKKKPK..","..KPPPPPPK..","..KPKKKPPK..","..KPPPPPPK..","..KPKKKKPK..","..KPPPPPPK..",".KPPPPPPPPK.",".KDDDDDDDDK.","..KKKKKKKK.."],
   dado:["............",".KKKKKKKKKK.",".KWWWWWWWLK.",".KWRWWWWRLK.",".KWWWWWWWLK.",".KWWWRRWWLK.",".KWWWRRWWLK.",".KWWWWWWWLK.",".KWRWWWWRLK.",".KWWWWWWWLK.",".KLLLLLLLLK.",".KKKKKKKKKK."],
@@ -956,7 +1129,9 @@ function telaPerfil(){
       <div class="row" style="text-align:center;margin-top:10px">
         <div><div class="px" style="font-size:1.3rem">${ic('pergaminho')} ${S.itens.pergaminho||0}</div><div class="small">pergaminhos</div></div>
         <div><div class="px" style="font-size:1.3rem">${ic('dado')} ${S.itens.dado||0}</div><div class="small">dados</div></div>
-      </div></div>
+      </div>
+      ${S.baus > 0 ? `<button class="btn" data-a="abrirBau" style="margin-top:12px">${ic('bau')} Abrir baú (${S.baus})</button>` : ''}
+      <button class="btn sec" data-a="tab" data-id="galeria">Galeria · ${COSM.filter(c => S.cos.tem[c.id]).length}/${COSM.length} · ${S.cos.frag} fragmentos</button></div>
     <h2>Nível por categoria</h2><div class="card">`;
   h += CATS.map(c => { const v = nivel(S.catXp[c.id]||0);
     return `<div class="catlv"><span class="nm">${c.nome}</span><div class="bar"><i style="width:${v.dentro/v.need*100}%;background:${c.cor}"></i></div><span class="n px">Nv ${v.n}</span></div>`; }).join('');
@@ -981,6 +1156,7 @@ function render(){
   else if (ui.tab === 'calendario') corpo = telaEmBreve('Calendário', 'O calendário com o resultado de cada dia e seus eventos chega na próxima fase. O histórico de hoje em diante já está sendo guardado.');
   else if (ui.tab === 'loja') corpo = telaLoja();
   else if (ui.tab === 'perfil') corpo = telaPerfil();
+  else if (ui.tab === 'galeria') corpo = telaGaleria();
   else if (ui.tab === 'config') corpo = telaConfig();
   const nb = (id, icn, txt) => `<button class="${ui.tab===id?'on':''}" data-a="tab" data-id="${id}"><span>${ic(icn,'28px')}</span>${txt}</button>`;
   app.innerHTML = topo() + `<main>${corpo}</main>
@@ -1167,6 +1343,8 @@ const acoes = {
   naoCumprida: async id => { if (await confirmar('Marcar como não cumprida? O XP e as moedas das quests continuam; só o bônus de conclusão é perdido.', 'Não cumprida')) metaManual(id, 'nao'); },
   reabrir: async id => { if (await confirmar('Reabrir esta meta? Se ela deu bônus de conclusão, ele é desfeito.', 'Reabrir')) reabrirMeta(id); },
   fechar: fecharSheet,
+  abrirBau: () => abrirBau(),
+  verCosm,
   abaLoja: id => { ui.loja = id; render(); },
   comprar, acoesQuest, resgatar,
   novaRecompensa: () => formRecompensa(null),
