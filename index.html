@@ -124,7 +124,22 @@ nav button:not(.on) svg{opacity:.55}
 .slot .q .tc{font-size:.62rem;padding:0 3px;font-weight:700}
 .slot .nm{display:block;margin-top:3px;height:2.2em;overflow:hidden}
 .zoom{width:150px;height:150px;margin:6px auto;border:3px solid var(--line);border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:var(--muted)}
-.zoom.sil{background:#15121f;color:#6b6280;font-size:3rem}
+.zoom.sil{background:#3a3450}
+.zoom .img,.zoom .sil2{width:82%;height:82%}
+.zoom.cena{padding:0;overflow:hidden}
+.zoom.cena .img,.zoom.cena .sil2{width:100%;height:100%}
+.slot .q .img,.slot .q .sil2{width:80%;height:80%}
+.slot .q.cen{overflow:hidden}
+.slot .q.cen .img,.slot .q.cen .sil2{width:100%;height:100%}
+.vis-prev{width:220px;height:220px;margin:0 auto;border:3px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:4px 4px 0 #15121f}
+.vis-lin{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px}
+.vis-op{flex:none;width:76px;background:none;border:none;padding:0;text-align:center;color:#fff;font-size:.62rem;line-height:1.1}
+.vis-op .q{width:76px;height:76px;border:3px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden}
+.vis-op .q .img{width:80%;height:80%}
+.vis-op .q.cen .img{width:100%;height:100%}
+.vis-op.on .q{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold)}
+.vis-op .nm{display:block;margin-top:4px;height:2.2em;overflow:hidden}
+.vis-op.on .nm{color:var(--gold);font-weight:700}
 </style>
 </head>
 <body>
@@ -132,9 +147,10 @@ nav button:not(.on) svg{opacity:.55}
 <div id="sheet"></div>
 <div id="modal"></div>
 
+<script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '0.6.2';
+const VERSAO = '0.7.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -268,6 +284,7 @@ function migrar(){
   if (!S.recompensas) S.recompensas = [];
   if (!S.resgates) S.resgates = [];
   if (!S.cos) S.cos = { tem:{}, frag:0 };   // cosméticos que você tem e fragmentos
+  if (!S.cos.eq) S.cos.eq = { cab:null, roupa:null, mao:null, pet:null, cen:null };   // peças equipadas (parte 3b)
 }
 let S;
 try { S = JSON.parse(localStorage.getItem(CHAVE)) || novoEstado(); } catch(e){ S = novoEstado(); }
@@ -737,7 +754,7 @@ function checarExclusivos(){
   if (!S || !S.cos) return;
   COSM.filter(c => c.rar === 'x' && !S.cos.tem[c.id] && c.ok()).forEach(c => {
     S.cos.tem[c.id] = hoje();
-    avisar(`<div class="big">${ic('trofeu','64px')}</div><h3 class="px">EXCLUSIVO!</h3><p>Você liberou <b>${c.nome}</b></p><p class="small">${c.como} · ${CATCOS[c.cat]}</p>`);
+    avisar(`<div class="premio"><div class="raios"><div>${zoomPeca(c, RAR.x.cor)}</div></div></div><h3 class="px" style="margin-top:14px">EXCLUSIVO!</h3><p>Você liberou <b>${c.nome}</b></p><p class="small">${c.como} · ${CATCOS[c.cat]}</p>`);
   });
 }
 function sortearBau(){
@@ -766,7 +783,7 @@ function sortearBau(){
 function htmlPremio(P){
   if (P.tipo === 'cosmetico'){
     const r = RAR[P.c.rar];
-    return `<div class="premio"><div class="raios"><div><div class="zoom" style="background:${r.cor};color:var(--ink);margin:0">${P.c.nome}</div></div></div>
+    return `<div class="premio"><div class="raios"><div>${zoomPeca(P.c, r.cor)}</div></div>
       <h3 class="px" style="margin-top:14px">${r.nome.toUpperCase()}!</h3><p><b>${P.c.nome}</b> · ${CATCOS[P.c.cat]}</p>
       ${P.rep ? `<p>Você já tem esta peça: virou <b>+${P.frag} fragmento${P.frag>1?'s':''}</b>.</p><p class="small">Fragmentos: ${S.cos.frag}</p>` : `<p>Peça nova na sua galeria!</p>`}</div>`;
   }
@@ -792,7 +809,7 @@ async function abrirBau(){
 function slotGaleria(c){
   const tem = !!S.cos.tem[c.id], r = RAR[c.rar];
   return `<button class="slot ${tem?'':'nao'}" data-a="verCosm" data-id="${c.id}">
-    <div class="q" style="background:${r.cor}">${tem ? `<span class="tc">${CATCOS[c.cat]}</span>` : `<div class="sil">?</div>`}</div>
+    <div class="q ${c.cat === 'cen' ? 'cen' : ''}" style="background:${r.cor}">${imgPeca(c, !tem)}</div>
     <span class="nm">${tem ? c.nome : '???'}</span></button>`;
 }
 function telaGaleria(){
@@ -808,10 +825,15 @@ function telaGaleria(){
 }
 async function verCosm(id){
   const c = cosm(id), tem = !!S.cos.tem[id], r = RAR[c.rar];
-  let corpo = `<div class="zoom ${tem?'':'sil'}">${tem ? 'imagem na parte 3b' : '?'}</div>
+  let corpo = `${tem ? `<div class="zoom cena" style="margin:0 auto">${svgPrevia(c.cat, id)}</div>`
+                    : `<div class="zoom sil ${c.cat === 'cen' ? 'cena' : ''}" style="margin:0 auto">${imgPeca(c, true)}</div>`}
     <h3>${tem ? c.nome : '???'}</h3><div class="small" style="color:var(--ink)">${r.nome} · ${CATCOS[c.cat]}</div>`;
   const bts = [];
-  if (tem) corpo += `<p class="small" style="color:var(--ink)">Você tem esta peça. Equipar chega na parte 3b.</p>`;
+  if (tem){
+    const eq = S.cos.eq[c.cat] === id;
+    corpo += `<p class="small" style="color:var(--ink)">${eq ? 'Equipada no seu personagem.' : 'Você tem esta peça.'}</p>`;
+    bts.push(eq ? {txt:'Tirar', cls:'sec', ret:'tirar'} : {txt:'Equipar', cls:'ok', ret:'equipar'});
+  }
   else if (c.rar === 'x') corpo += `<p class="small" style="color:var(--ink)"><b>Como ganhar:</b> ${c.como}<br>Exclusivos não saem no baú nem trocam por fragmentos.</p>`;
   else {
     const falta = r.custo - S.cos.frag;
@@ -822,11 +844,35 @@ async function verCosm(id){
   const p = janela(corpo, bts);
   const card = modalEl.querySelector('.card'); if (card) card.style.background = r.cor;
   const v = await p;
+  if (v === 'equipar' || v === 'tirar'){ equipar(c.cat, v === 'equipar' ? id : null); return; }
   if (v === 'trocar' && S.cos.frag >= r.custo && !S.cos.tem[id]){
     S.cos.frag -= r.custo; S.cos.tem[id] = hoje(); salvar(); render();
-    janela(`<div class="premio"><div class="raios"><div><div class="zoom" style="background:${r.cor};color:var(--ink);margin:0">${c.nome}</div></div></div>
-      <h3 class="px" style="margin-top:14px">NOVA PEÇA!</h3><p><b>${c.nome}</b></p></div>`, [{txt:'Continuar', ret:1}]);
+    const v2 = await janela(`<div class="premio"><div class="raios"><div>${zoomPeca(c, r.cor)}</div></div>
+      <h3 class="px" style="margin-top:14px">NOVA PEÇA!</h3><p><b>${c.nome}</b></p></div>`, [{txt:'Equipar agora', cls:'ok', ret:'eq'}, {txt:'Continuar', cls:'sec', ret:null}]);
+    if (v2 === 'eq') equipar(c.cat, id);
   }
+}
+
+/* ===================== VISUAL (equipar peças) ===================== */
+const PADRAO_CAT = {cab:'Nada', roupa:'Casual', mao:'Nada', pet:'Nenhum', cen:'Fundo claro'};
+function equipar(cat, id){ S.cos.eq[cat] = id; salvar(); render(); }
+function telaVisual(){
+  const eq = S.cos.eq;
+  let h = `<h2>Visual</h2><div class="vis-prev">${svgCena(eq)}</div>
+    <p class="small" style="text-align:center;color:#cfc8e6">Toque numa peça para equipar. Aparecem só as que você já tem.</p>`;
+  const casual = cenaPixels({}, {semFundo:true});
+  for (const cat of ['cab','roupa','mao','pet','cen']){
+    const tenho = COSM.filter(c => c.cat === cat && S.cos.tem[c.id]);
+    const op = (id, nome, img) => `<button class="vis-op ${eq[cat] === id ? 'on' : ''}" data-a="equipar" data-id="${cat}:${id || ''}">
+      <div class="q ${cat === 'cen' ? 'cen' : ''}">${img}</div><span class="nm">${nome}</span></button>`;
+    const padrao = cat === 'roupa' ? `<div class="img">${svgPixels(casual, _caixa(casual))}</div>`
+                 : cat === 'cen' ? `<div class="img">${svgPixels(new Array(1024).fill(FUNDO_PADRAO))}</div>`
+                 : `<span style="color:var(--muted);font-size:1.4rem">—</span>`;
+    h += `<h3 style="margin:14px 0 4px;color:#fff">${CATCOS[cat]} <span class="small" style="color:#a59cc4">${tenho.length}/${COSM.filter(c => c.cat === cat).length}</span></h3>
+      <div class="vis-lin">${op(null, PADRAO_CAT[cat], padrao)}${tenho.map(c => op(c.id, c.nome, imgPeca(c))).join('')}</div>`;
+  }
+  return h + `<button class="btn sec" data-a="tab" data-id="galeria" style="margin-top:10px">Galeria</button>
+    <button class="btn sec" data-a="tab" data-id="perfil" style="margin-top:8px">Voltar ao Perfil</button>`;
 }
 
 /* ===================== JANELAS ===================== */
@@ -897,31 +943,11 @@ function ic(nome, tam='1.15em'){
   return `<svg class="ic" style="width:${tam};height:${tam}" ${_icCache[nome]}`;
 }
 
-/* ===================== PERSONAGEM (pixel art) ===================== */
-const PERS = [
-  "................",
-  ".....KKKKKK.....",
-  "....KHHHHHHK....",
-  "...KHHHHHHHHK...",
-  "...KHSSSSSSHK...",
-  "...KSSESSESSK...",
-  "...KSSSSSSSSK...",
-  "....KSSMMSSK....",
-  ".....KKSSKK.....",
-  "....KBBBBBBK....",
-  "...KSBBWWBBSK...",
-  "...KSBBBBBBSK...",
-  "....KJJJJJJK....",
-  "....KJJKKJJK....",
-  "....KJJKKJJK....",
-  "....KKKKKKKK....",
-];
-const PCOR = {K:'#231a2e',H:'#1a1a1a',S:'#f6d2b0',E:'#111',M:'#c86a5a',B:'#3a72d8',W:'#f0c83c',J:'#3c5a8c'};
-function personagemSVG(){
-  let r = '';
-  PERS.forEach((l,y) => [...l].forEach((c,x) => { if (c !== '.') r += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${PCOR[c]}"/>`; }));
-  return `<svg viewBox="0 0 16 16" shape-rendering="crispEdges">${r}</svg>`;
-}
+/* ===================== PERSONAGEM (pixel art: sprites.js) ===================== */
+function personagemSVG(){ return svgAvatar(S.cos.eq); }
+const imgPeca = (c, sil = false) => `<div class="${sil ? 'sil2' : 'img'}">${svgPeca(c.id, c.cat, sil)}</div>`;
+// quadro grande da peça (zoom, baú, troca)
+const zoomPeca = (c, cor) => `<div class="zoom ${c.cat === 'cen' ? 'cena' : ''}" style="background:${cor};margin:0 auto">${imgPeca(c)}</div>`;
 
 /* ===================== TELAS ===================== */
 const app = document.getElementById('app');
@@ -1108,7 +1134,7 @@ function telaPerfil(){
   const nv = nivel(S.xp);
   const completas = S.metas.filter(m => m.status === 'cumprida').length;
   let h = `<h2>Perfil</h2><div class="card" style="text-align:center">
-    <div style="width:120px;height:120px;margin:0 auto;border:3px solid var(--line);background:#dfe9f5;border-radius:16px;overflow:hidden">${personagemSVG()}</div>
+    <button data-a="tab" data-id="visual" style="display:block;width:160px;height:160px;margin:0 auto;padding:0;border:3px solid var(--line);border-radius:16px;overflow:hidden;background:none">${svgCena(S.cos.eq)}</button>
     <div class="px" style="margin-top:8px;font-size:1.1rem">Nível ${nv.n}</div>
     <div class="small">Classe: Residente R3 de Pediatria</div>
     <div class="bar" style="background:#fff"><i style="width:${nv.dentro/nv.need*100}%"></i></div>
@@ -1129,6 +1155,7 @@ function telaPerfil(){
         <div><div class="px" style="font-size:1.3rem">${ic('dado')} ${S.itens.dado||0}</div><div class="small">dados</div></div>
       </div>
       ${S.baus > 0 ? `<button class="btn" data-a="abrirBau" style="margin-top:12px">${ic('bau')} Abrir baú (${S.baus})</button>` : ''}
+      <button class="btn" data-a="tab" data-id="visual">Visual · equipar peças</button>
       <button class="btn sec" data-a="tab" data-id="galeria">Galeria · ${COSM.filter(c => S.cos.tem[c.id]).length}/${COSM.length} · ${S.cos.frag} fragmentos</button></div>
     <h2>Nível por categoria</h2><div class="card">`;
   h += CATS.map(c => { const v = nivel(S.catXp[c.id]||0);
@@ -1155,6 +1182,7 @@ function render(){
   else if (ui.tab === 'loja') corpo = telaLoja();
   else if (ui.tab === 'perfil') corpo = telaPerfil();
   else if (ui.tab === 'galeria') corpo = telaGaleria();
+  else if (ui.tab === 'visual') corpo = telaVisual();
   else if (ui.tab === 'config') corpo = telaConfig();
   const nb = (id, icn, txt) => `<button class="${ui.tab===id?'on':''}" data-a="tab" data-id="${id}"><span>${ic(icn,'28px')}</span>${txt}</button>`;
   app.innerHTML = topo() + `<main>${corpo}</main>
@@ -1343,6 +1371,7 @@ const acoes = {
   fechar: fecharSheet,
   abrirBau: () => abrirBau(),
   verCosm,
+  equipar: v => { const [cat, id] = v.split(':'); equipar(cat, id || null); },
   abaLoja: id => { ui.loja = id; render(); },
   comprar, acoesQuest, resgatar,
   novaRecompensa: () => formRecompensa(null),
