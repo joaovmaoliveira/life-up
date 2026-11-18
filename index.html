@@ -140,6 +140,17 @@ nav button:not(.on) svg{opacity:.55}
 .vis-op.on .q{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold)}
 .vis-op .nm{display:block;margin-top:4px;height:2.2em;overflow:hidden}
 .vis-op.on .nm{color:var(--gold);font-weight:700}
+.meds{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.med{background:var(--card);border:3px solid var(--line);border-radius:12px;box-shadow:2px 2px 0 #15121f;padding:6px 4px;text-align:center;color:var(--ink);line-height:1.1}
+.med .m{position:relative;display:inline-block}
+.med .qq{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.2rem;padding-top:8px}
+.med b{display:block;font-size:.66rem;margin-top:2px}
+.med span{display:block;font-size:.58rem;color:var(--muted);margin-top:2px}
+.med.nao{background:#bdb6cf}
+.med.nao b{color:#4a4560}
+.tit{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:var(--card);border:3px solid var(--line);border-radius:12px;box-shadow:2px 2px 0 #15121f;padding:8px 10px;margin-top:8px;color:var(--ink)}
+.tit>span{display:flex;flex-direction:column}
+.tit.on{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold)}
 </style>
 </head>
 <body>
@@ -150,7 +161,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '0.7.0';
+const VERSAO = '0.8.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -225,9 +236,68 @@ const COSM = [
   {id:'espadafogo', nome:'Espada flamejante',       cat:'mao',   rar:'x', como:'Chegar ao nível 20',          ok:() => nivel(S.xp).n >= 20},
   {id:'aureola',    nome:'Auréola dourada',         cat:'cab',   rar:'x', como:'Chegar ao nível 30',          ok:() => nivel(S.xp).n >= 30},
   {id:'lobo',       nome:'Lobo prateado',           cat:'pet',   rar:'x', como:'100 dias de sequência',       ok:() => S.seq.recorde >= 100},
-  {id:'fenix',      nome:'Fênix',                   cat:'pet',   rar:'x', como:'Conquista "Fênix"',           ok:() => false},
+  {id:'fenix',      nome:'Fênix',                   cat:'pet',   rar:'x', como:'Conquista "Fênix"',           ok:() => !!(S.conq && S.conq.fenix)},
 ];
 const cosm = id => COSM.find(c => c.id === id);
+
+/* ===================== CONQUISTAS (dados) ===================== */
+const TITULO_INICIAL = 'Residente R3 de Pediatria';
+const TIER = {
+  b:{nome:'Bronze',   cor:'#d0844a', esc:'#8a4a1c'},
+  p:{nome:'Prata',    cor:'#d8e0ec', esc:'#8a94a8'},
+  o:{nome:'Ouro',     cor:'#f0c83c', esc:'#c9902a'},
+  x:{nome:'Especial', cor:'#f39ab8', esc:'#c05a80'},
+  s:{nome:'Surpresa', cor:'#b88cf0', esc:'#6e40b0'},
+};
+const PREMIO_NOME = {pergaminho:'Pergaminho', dado:'Dado da troca', escudo:'Escudo', bau:'Baú surpresa', lobo:'Mascote exclusivo Lobo prateado', fenix:'Mascote exclusivo Fênix'};
+const NOMES_CAT = {
+  1:['Curioso dos Hobbies','Aventureiro do Lazer','Mestre das Horas Livres'],
+  2:['Bom de Papo','Alma da Festa','Lenda Social'],
+  3:['Guardião de Moedas','Poupador Voraz','Lorde do Tesouro'],
+  4:['Adepto da Saúde','Entusiasta da Saúde','Mestre da Saúde'],
+  5:['Estudante Dedicado','Devorador de Livros','Sábio Arcano'],
+  6:['Plantonista Valente','Especialista Implacável','Mestre do Ofício'],
+  7:['Laço Firme','Guardião da Família','Pilar da Família'],
+  8:['Arrumador Novato','Senhor do Lar','Mestre do Castelo'],
+  9:['Buscador','Forjador de Hábitos','Mestre de Si'],
+  10:['Faz-Tudo','Aventureiro Versátil','Lenda dos Mil Ofícios'],
+};
+const _txt = b => decodeURIComponent(escape(atob(b)));   // surpresas guardadas em código para não estragar a surpresa
+const metasCumpridas = () => S.metas.filter(m => m.status === 'cumprida').length;
+const nCosm = () => COSM.filter(c => S.cos.tem[c.id]).length;
+// grupo, id, tier, título, condição, prêmio(s), progresso [atual, alvo] ou ok()
+const CONQ = [];
+CATS.forEach(c => ['b','p','o'].forEach((t, i) => { const alvo = [5,10,15][i];
+  CONQ.push({id:`cat${c.id}${t}`, grupo:'cat', cat:c.id, tier:t, titulo:NOMES_CAT[c.id][i],
+    cond:() => `${cat(c.id).nome} no nível ${alvo}`, premio:[['pergaminho','dado','bau'][i]], prog:() => [nivel(S.catXp[c.id]||0).n, alvo]}); }));
+const _x = (grupo, id, tier, titulo, cond, premio, f) => CONQ.push({id, grupo, tier, titulo, cond, premio, ...f});
+_x('Sequência','seq7',  'b','Persistente', '7 dias de sequência',   ['pergaminho'], {prog:() => [S.seq.recorde, 7]});
+_x('Sequência','seq30', 'p','Inabalável',  '30 dias de sequência',  ['escudo'],     {prog:() => [S.seq.recorde, 30]});
+_x('Sequência','seq100','o','Imparável',   '100 dias de sequência', ['bau','lobo'], {prog:() => [S.seq.recorde, 100]});
+_x('Sequência','seq365','o','Lenda Viva',  '365 dias de sequência', ['bau'],        {prog:() => [S.seq.recorde, 365]});
+_x('Nível geral','nv5', 'b','Aventureiro Iniciante','Chegar ao nível 5', ['pergaminho'], {prog:() => [nivel(S.xp).n, 5]});
+_x('Nível geral','nv10','p','Veterano',  'Chegar ao nível 10', ['dado'],   {prog:() => [nivel(S.xp).n, 10]});
+_x('Nível geral','nv20','o','Herói',     'Chegar ao nível 20', ['escudo'], {prog:() => [nivel(S.xp).n, 20]});
+_x('Nível geral','nv30','o','Campeão',   'Chegar ao nível 30', ['bau'],    {prog:() => [nivel(S.xp).n, 30]});
+_x('Nível geral','nv50','o','Lendário',  'Chegar ao nível 50', ['bau'],    {prog:() => [nivel(S.xp).n, 50]});
+_x('Metas','meta1', 'b','Conquistador',            'Concluir a 1ª meta',   ['pergaminho'], {prog:() => [metasCumpridas(), 1]});
+_x('Metas','meta5', 'p','Caçador de Metas',        'Concluir 5 metas',     ['dado'],       {prog:() => [metasCumpridas(), 5]});
+_x('Metas','meta10','o','Colecionador de Vitórias','Concluir 10 metas',    ['bau'],        {prog:() => [metasCumpridas(), 10]});
+_x('Metas','maratona','o','Maratonista',           'Concluir a 1ª meta de prazo muito longo', ['bau'], {ok:() => S.metas.some(m => m.status === 'cumprida' && m.prazo === 'muito')});
+_x('Equilíbrio','semana','p','Impecável',      'Semana perfeita: 7 de 7 dias cumpridos (sem escudo)', ['dado'], {ok:() => semanaPerfeita()});
+_x('Equilíbrio','mes',   'o','Perfeccionista', 'Mês perfeito: um mês inteiro sem dia falho nem escudo (mín. 20 dias cumpridos)', ['escudo'], {ok:() => mesesFechados().some(M => { const n = contarMes(M); return !n.falha && !n.escudo && n.ok >= 20; })});
+_x('Equilíbrio','equilibrio','o','Mestre do Equilíbrio','As 10 categorias no nível 5', ['bau'], {prog:() => [CATS.filter(c => nivel(S.catXp[c.id]||0).n >= 5).length, 10]});
+_x('Superação','alem',     'o','Além do Limite','Concluir uma meta com 150% do alvo', ['bau'], {ok:() => S.metas.some(m => m.tipo === 'auto' && m.status === 'cumprida' && m.alvo > 0 && m.progresso >= 1.5*m.alvo)});
+_x('Superação','fenix',    'p','Fênix',         'Refazer 7 dias de sequência depois de perder uma', ['fenix'], {ok:() => !!S.stats.perdeu && S.seq.atual >= 7});
+_x('Superação','destemido','p','Destemido',     'Um mês inteiro sem usar escudo (mín. 20 dias cumpridos)', ['dado'], {ok:() => mesesFechados().some(M => { const n = contarMes(M); return !n.escudo && n.ok >= 20; })});
+_x('Coleção','colecao','p','Colecionador','Ter 10 cosméticos', ['bau'], {prog:() => [nCosm(), 10]});
+_x('Especial','pediatra','x','Pediatra','Concluir a residência em Pediatria (você marca)', ['bau'], {manual:true, ok:() => false});
+_x('Surpresas','s1','s',_txt('QXJhdXRvIGRhIEF1cm9yYQ=='), _txt('Q29uY2x1aXIgcGVsbyBtZW5vcyAxIHF1ZXN0IGVudHJlIDA0aCBlIDA3aCBlbSAzMCBkaWFzIGRpZmVyZW50ZXM='), ['escudo'], {secreta:true, prog:() => [Object.keys(S.stats.aurora).length, 30]});
+_x('Surpresas','s2','s',_txt('UG9sw61tYXRh'), _txt('Q29uY2x1aXIgcXVlc3RzIGRlIHBlbG8gbWVub3MgOCBjYXRlZ29yaWFzIGRpZmVyZW50ZXMgbmEgbWVzbWEgc2VtYW5h'), ['bau'], {secreta:true, ok:() => Object.values(S.sem).some(L => Object.keys(L.qc||{}).filter(c => L.qc[c] > 0).length >= 8)});
+_x('Surpresas','s3','s',_txt('R3VhcmRpw6NvIGRvIFRlbXBv'), _txt('Q29tcGxldGFyIDEgYW5vIGRlIHVzbyBkbyBhcHA='), ['bau'], {secreta:true, prog:() => [Math.max(0, diasEntre(S.criado, hoje())), 365]});
+const conq = id => CONQ.find(c => c.id === id);
+const condTxt = c => typeof c.cond === 'function' ? c.cond() : c.cond;
+const conqOk = c => c.prog ? (([a, b]) => a >= b)(c.prog()) : c.ok();
 // chances do baú (decididas em 16/11/2026)
 const BAU = { cosmetico:.80, item:.15, escudo:.05 };   // sem moedas no baú (decidido em 16/11/2026)
 const BAU_ITEM_CHEIO = .5;   // item com estoque cheio vira metade do preço em moedas
@@ -284,11 +354,15 @@ function migrar(){
   if (!S.recompensas) S.recompensas = [];
   if (!S.resgates) S.resgates = [];
   if (!S.cos) S.cos = { tem:{}, frag:0 };   // cosméticos que você tem e fragmentos
+  if (!S.conq) S.conq = {};          // conquistas: id → dia em que ganhou
+  if (!S.stats) S.stats = {};
+  if (!S.stats.aurora) S.stats.aurora = {};
+  if (S.titulo === undefined) S.titulo = null;   // título escolhido (null = inicial)
   if (!S.cos.eq) S.cos.eq = { cab:null, roupa:null, mao:null, pet:null, cen:null };   // peças equipadas (parte 3b)
 }
 let S;
 try { S = JSON.parse(localStorage.getItem(CHAVE)) || novoEstado(); } catch(e){ S = novoEstado(); }
-const salvar = () => { checarExclusivos(); localStorage.setItem(CHAVE, JSON.stringify(S)); };
+const salvar = () => { checarConquistas(); checarExclusivos(); localStorage.setItem(CHAVE, JSON.stringify(S)); };
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
 const ui = { tab:'missoes', sub:'dias', filtro:'todas', aberta:null, loja:'itens' };
@@ -340,6 +414,7 @@ function avaliarSequencia(){
       S.seq.atual++; S.seq.recorde = Math.max(S.seq.recorde, S.seq.atual); S.res[d] = 'ok';
     } else if (ok === false){
       if (S.seq.atual > 0 && S.escudos > 0) return d;
+      if (S.seq.atual > 0) S.stats.perdeu = true;
       S.seq.atual = 0; S.res[d] = 'falha';
     }
     S.seq.ultimo = d;
@@ -350,7 +425,7 @@ function avaliarSequencia(){
 }
 function decidirEscudo(d, usar){
   if (usar){ S.escudos--; S.res[d] = 'escudo'; }
-  else { S.seq.atual = 0; S.res[d] = 'falha'; }
+  else { if (S.seq.atual > 0) S.stats.perdeu = true; S.seq.atual = 0; S.res[d] = 'falha'; }
   S.seq.ultimo = d;
 }
 const perguntarEscudo = d => new Promise(res => {
@@ -439,6 +514,7 @@ async function concluirQuest(id){
   });
   fecharLevel(g); aplicar(g);
   r.feitas[id] = { g, xpQuest, valor, metas: autos.map(m=>m.id), concl };
+  { const hr = new Date().getHours(); if (hr >= 4 && hr < 7) S.stats.aurora[hoje()] = 1; }
   salvar(); render();
   concl.forEach(mid => avisoMeta(meta(mid)));
   if (g.lv) avisoLevel(g);
@@ -853,6 +929,123 @@ async function verCosm(id){
   }
 }
 
+/* ===================== CONQUISTAS E TÍTULOS ===================== */
+function semanaPerfeita(){
+  // alguma semana já fechada (seg a dom) com os 7 dias cumpridos
+  const ultima = addDias(periodo('semanal').ini, -7);
+  for (let ini = periodo('semanal', S.criado).ini; ini <= ultima; ini = addDias(ini, 7))
+    if (semanaDias(ini).every(d => resultadoDia(d) === 'ok')) return true;
+  return false;
+}
+function mesesFechados(){
+  // meses inteiros já terminados que começaram depois do 1º dia de uso
+  const out = [], c = parseKey(S.criado), h = hoje();
+  for (let i = c.getDate() === 1 ? 0 : 1; ; i++){
+    const ini = keyOf(new Date(c.getFullYear(), c.getMonth() + i, 1)), fim = keyOf(new Date(c.getFullYear(), c.getMonth() + i + 1, 0));
+    if (fim >= h) break; out.push({ini, fim});
+  }
+  return out;
+}
+function contarMes(M){
+  const n = {ok:0, falha:0, escudo:0};
+  for (let d = M.ini; d <= M.fim; d = addDias(d, 1)){ const r = resultadoDia(d); if (r) n[r]++; }
+  return n;
+}
+function darPremio(item, g){
+  // devolve o texto do que entrou
+  if (item === 'bau'){ g.baus++; return 'Baú surpresa'; }
+  if (item === 'escudo') return ganharEscudo(g) ? 'Escudo' : `Escudo (estoque cheio: +${ESCUDO_EXCEDENTE_MOEDAS} moedas)`;
+  if (item === 'pergaminho' || item === 'dado'){
+    if ((S.itens[item]||0) < ITENS[item].max){ S.itens[item] = (S.itens[item]||0) + 1; return PREMIO_NOME[item]; }
+    const m = Math.round(ITENS[item].preco * BAU_ITEM_CHEIO); g.moedas += m; return `${PREMIO_NOME[item]} (estoque cheio: +${m} moedas)`;
+  }
+  return PREMIO_NOME[item];   // lobo e fênix: o cosmético exclusivo é liberado sozinho
+}
+let checandoConq = false;
+function checarConquistas(){
+  if (!S || !S.conq || checandoConq) return;
+  checandoConq = true;
+  try { CONQ.forEach(c => { if (!S.conq[c.id] && !c.manual && conqOk(c)) desbloquear(c); }); }
+  finally { checandoConq = false; }
+}
+function desbloquear(c){
+  S.conq[c.id] = hoje();
+  const g = ganhoVazio();
+  const premios = c.premio.map(i => darPremio(i, g));
+  if (g.moedas || g.baus){ S.moedas += g.moedas; S.baus += g.baus; logSem(semAtual(), 0, 0, g.moedas, {}); }
+  const t = TIER[c.tier];
+  filaAvisos = filaAvisos.then(async () => {
+    const v = await janela(`<div class="premio"><div class="raios"><div>${medalhaSVG(c.tier, true, '110px')}</div></div></div>
+      <h3 class="px" style="margin-top:14px">CONQUISTA!</h3>
+      <div class="small" style="color:var(--ink)">${t.nome} · ${condTxt(c)}</div>
+      <p>Novo título: <b>${c.titulo}</b></p><p>Prêmio: <b>${premios.join(' + ')}</b></p>`,
+      [{txt:'Usar este título', ret:'tit'}, ...(c.premio.includes('bau') ? [{txt:'Abrir baú agora', cls:'ok', ret:'bau'}] : []), {txt:'Continuar', cls:'sec', ret:null}]);
+    if (v === 'tit'){ S.titulo = c.id; salvar(); render(); }
+    if (v === 'bau' && S.baus > 0) await abrirBau();
+  });
+}
+const tituloAtual = () => (S.titulo && S.conq[S.titulo] && conq(S.titulo)) ? conq(S.titulo).titulo : TITULO_INICIAL;
+const _medCache = {};
+function medalhaSVG(tier, tem, tam){
+  const k = tier + tem;
+  if (!_medCache[k]){
+    const t = TIER[tier];
+    const cor = tem ? {...ICOR, G:t.cor, Y:t.esc, W:'#fffbe8'} : {...ICOR, G:'#5a5470', Y:'#46405c', W:'#6e6888', R:'#4a4560', U:'#3e3a52'};
+    let r = '';
+    ICONES.medalha.forEach((l, y) => [...l].forEach((ch, x) => { if (cor[ch]) r += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${cor[ch]}"/>`; }));
+    _medCache[k] = `viewBox="0 0 12 12" shape-rendering="crispEdges">${r}</svg>`;
+  }
+  return `<svg class="ic" style="width:${tam};height:${tam}" ${_medCache[k]}`;
+}
+const GRUPOS = ['Sequência','Nível geral','Metas','Equilíbrio','Superação','Coleção','Especial','Surpresas'];
+function celMedalha(c){
+  const tem = !!S.conq[c.id], oculta = c.secreta && !tem;
+  return `<button class="med ${tem ? '' : 'nao'}" data-a="verConq" data-id="${c.id}">
+    <div class="m">${medalhaSVG(c.tier, tem, '44px')}${oculta ? '<span class="qq">?</span>' : ''}</div>
+    <b>${oculta ? '???' : c.titulo}</b><span>${oculta ? 'Surpresa' : condTxt(c)}</span></button>`;
+}
+function telaMedalhas(){
+  const n = CONQ.filter(c => S.conq[c.id]).length;
+  let h = `<h2>Medalhas</h2>
+    <div class="resumo"><span>Conquistas: <b>${n}/${CONQ.length}</b></span><span>Títulos: <b>${n + 1}</b></span></div>
+    <div class="card" style="padding:10px 12px"><div class="small">Título em uso</div><b>${tituloAtual()}</b>
+      <button class="btn sec" data-a="tab" data-id="titulos" style="margin-top:8px">Trocar título</button></div>
+    <h3 style="color:#fff;margin:14px 0 6px">Por categoria</h3>`;
+  h += CATS.map(c => `<div class="small" style="color:${c.cor};font-weight:700;margin:8px 2px 4px">${c.nome} · Nv ${nivel(S.catXp[c.id]||0).n}</div>
+    <div class="meds">${CONQ.filter(x => x.cat === c.id).map(celMedalha).join('')}</div>`).join('');
+  GRUPOS.forEach(gp => { h += `<h3 style="color:#fff;margin:16px 0 6px">${gp}</h3><div class="meds">${CONQ.filter(c => c.grupo === gp).map(celMedalha).join('')}</div>`; });
+  return h + `<button class="btn sec" data-a="tab" data-id="perfil" style="margin-top:14px">Voltar ao Perfil</button>`;
+}
+async function verConq(id){
+  const c = conq(id), tem = !!S.conq[id], oculta = c.secreta && !tem, t = TIER[c.tier];
+  let corpo = `<div style="margin:6px 0">${medalhaSVG(c.tier, tem, '96px')}</div>`;
+  if (oculta) corpo += `<h3>???</h3><p class="small" style="color:var(--ink)">Conquista surpresa. Continue jogando para descobrir!</p>`;
+  else {
+    corpo += `<h3>${c.titulo}</h3><div class="small" style="color:var(--ink)">${t.nome}${c.cat ? ' · ' + cat(c.cat).nome : ' · ' + c.grupo}</div>
+      <p><b>Como ganhar:</b> ${condTxt(c)}</p>`;
+    if (!tem && c.prog){ const [a, b] = c.prog(); corpo += `<div class="bar" style="background:#fff"><i style="width:${Math.min(100, a/b*100)}%"></i></div><div class="small" style="color:var(--ink)">${Math.min(a, b)} / ${b}</div>`; }
+    corpo += `<p class="small" style="color:var(--ink)">Prêmio: ${c.premio.map(i => PREMIO_NOME[i]).join(' + ')} · Título: ${c.titulo}</p>`;
+    if (tem) corpo += `<p class="small" style="color:var(--ink)">Conquistada em ${fmtData(S.conq[id])}</p>`;
+  }
+  const bts = [];
+  if (tem) bts.push(S.titulo === id ? {txt:'Título em uso', cls:'sec', ret:null} : {txt:'Usar este título', ret:'tit'});
+  if (!tem && c.manual) bts.push({txt:'Concluí a residência!', cls:'ok', ret:'manual'});
+  bts.push({txt:'Fechar', cls:'sec', ret:null});
+  const v = await janela(corpo, bts);
+  if (v === 'tit'){ S.titulo = id; salvar(); render(); }
+  if (v === 'manual' && await confirmar('Marcar a residência como concluída? Isso libera a conquista Pediatra.', 'Concluída!', 'ok')){
+    desbloquear(c); salvar(); render();
+  }
+}
+function telaTitulos(){
+  const lista = [{id:null, titulo:TITULO_INICIAL, sub:'Título inicial'}, ...CONQ.filter(c => S.conq[c.id]).map(c => ({id:c.id, titulo:c.titulo, sub:`${TIER[c.tier].nome} · ${condTxt(c)}`, tier:c.tier}))];
+  return `<h2>Títulos</h2><p class="small" style="color:#cfc8e6">Escolha o título que aparece no seu Perfil. Novos títulos vêm das conquistas.</p>
+    ${lista.map(x => `<button class="tit ${(S.titulo && S.conq[S.titulo] ? S.titulo : null) === x.id ? 'on' : ''}" data-a="usarTitulo" data-id="${x.id || ''}">
+      ${x.tier ? medalhaSVG(x.tier, true, '30px') : ic('medalha','30px')}<span><b>${x.titulo}</b><span class="small">${x.sub}</span></span></button>`).join('')}
+    <button class="btn sec" data-a="tab" data-id="medalhas" style="margin-top:12px">Medalhas</button>
+    <button class="btn sec" data-a="tab" data-id="perfil" style="margin-top:8px">Voltar ao Perfil</button>`;
+}
+
 /* ===================== VISUAL (equipar peças) ===================== */
 const PADRAO_CAT = {cab:'Nada', roupa:'Casual', mao:'Nada', pet:'Nenhum', cen:'Fundo claro'};
 function equipar(cat, id){ S.cos.eq[cat] = id; salvar(); render(); }
@@ -1136,7 +1329,7 @@ function telaPerfil(){
   let h = `<h2>Perfil</h2><div class="card" style="text-align:center">
     <button data-a="tab" data-id="visual" style="display:block;width:160px;height:160px;margin:0 auto;padding:0;border:3px solid var(--line);border-radius:16px;overflow:hidden;background:none">${svgCena(S.cos.eq)}</button>
     <div class="px" style="margin-top:8px;font-size:1.1rem">Nível ${nv.n}</div>
-    <div class="small">Classe: Residente R3 de Pediatria</div>
+    <button class="link" data-a="tab" data-id="titulos" style="font-size:.8rem">Classe: <b>${tituloAtual()}</b> · trocar</button>
     <div class="bar" style="background:#fff"><i style="width:${nv.dentro/nv.need*100}%"></i></div>
     <div class="small">${nv.dentro} / ${nv.need} XP · ${S.xp} XP no total</div></div>
     <div class="card">
@@ -1156,6 +1349,7 @@ function telaPerfil(){
       </div>
       ${S.baus > 0 ? `<button class="btn" data-a="abrirBau" style="margin-top:12px">${ic('bau')} Abrir baú (${S.baus})</button>` : ''}
       <button class="btn" data-a="tab" data-id="visual">Visual · equipar peças</button>
+      <button class="btn" data-a="tab" data-id="medalhas">${ic('medalha')} Medalhas · ${CONQ.filter(c => S.conq[c.id]).length}/${CONQ.length}</button>
       <button class="btn sec" data-a="tab" data-id="galeria">Galeria · ${COSM.filter(c => S.cos.tem[c.id]).length}/${COSM.length} · ${S.cos.frag} fragmentos</button></div>
     <h2>Nível por categoria</h2><div class="card">`;
   h += CATS.map(c => { const v = nivel(S.catXp[c.id]||0);
@@ -1183,6 +1377,8 @@ function render(){
   else if (ui.tab === 'perfil') corpo = telaPerfil();
   else if (ui.tab === 'galeria') corpo = telaGaleria();
   else if (ui.tab === 'visual') corpo = telaVisual();
+  else if (ui.tab === 'medalhas') corpo = telaMedalhas();
+  else if (ui.tab === 'titulos') corpo = telaTitulos();
   else if (ui.tab === 'config') corpo = telaConfig();
   const nb = (id, icn, txt) => `<button class="${ui.tab===id?'on':''}" data-a="tab" data-id="${id}"><span>${ic(icn,'28px')}</span>${txt}</button>`;
   app.innerHTML = topo() + `<main>${corpo}</main>
@@ -1370,7 +1566,8 @@ const acoes = {
   reabrir: async id => { if (await confirmar('Reabrir esta meta? Se ela deu bônus de conclusão, ele é desfeito.', 'Reabrir')) reabrirMeta(id); },
   fechar: fecharSheet,
   abrirBau: () => abrirBau(),
-  verCosm,
+  verCosm, verConq,
+  usarTitulo: id => { S.titulo = id || null; salvar(); render(); },
   equipar: v => { const [cat, id] = v.split(':'); equipar(cat, id || null); },
   abaLoja: id => { ui.loja = id; render(); },
   comprar, acoesQuest, resgatar,
