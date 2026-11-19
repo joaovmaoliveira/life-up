@@ -161,7 +161,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '0.8.1';
+const VERSAO = '0.8.2';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -246,7 +246,7 @@ const TIER = {
   b:{nome:'Bronze',   cor:'#d0844a', esc:'#8a4a1c'},
   p:{nome:'Prata',    cor:'#d8e0ec', esc:'#8a94a8'},
   o:{nome:'Ouro',     cor:'#f0c83c', esc:'#c9902a'},
-  x:{nome:'Especial', cor:'#f39ab8', esc:'#c05a80'},
+  x:{nome:'Especial', cor:'#5fd8e8', esc:'#1f8fa8'},
   s:{nome:'Surpresa', cor:'#b88cf0', esc:'#6e40b0'},
 };
 const PREMIO_NOME = {pergaminho:'Pergaminho', dado:'Dado da troca', escudo:'Escudo', bau:'Baú surpresa', lobo:'Mascote exclusivo Lobo prateado', fenix:'Mascote exclusivo Fênix'};
@@ -1350,7 +1350,7 @@ function telaPerfil(){
       ${S.baus > 0 ? `<button class="btn" data-a="abrirBau" style="margin-top:12px">${ic('bau')} Abrir baú (${S.baus})</button>` : ''}
       <button class="btn" data-a="tab" data-id="visual">Visual · equipar peças</button>
       <button class="btn" data-a="tab" data-id="medalhas">${ic('medalha')} Medalhas · ${CONQ.filter(c => S.conq[c.id]).length}/${CONQ.length}</button>
-      <button class="btn sec" data-a="tab" data-id="galeria">Galeria · ${COSM.filter(c => S.cos.tem[c.id]).length}/${COSM.length} · ${S.cos.frag} fragmentos</button></div>
+      <button class="btn" data-a="tab" data-id="galeria">Galeria · ${COSM.filter(c => S.cos.tem[c.id]).length}/${COSM.length} · ${S.cos.frag} fragmentos</button></div>
     <h2>Nível por categoria</h2><div class="card">`;
   h += CATS.map(c => { const v = nivel(S.catXp[c.id]||0);
     return `<div class="catlv"><span class="nm">${c.nome}</span><div class="bar"><i style="width:${v.dentro/v.need*100}%;background:${c.cor}"></i></div><span class="n px">Nv ${v.n}</span></div>`; }).join('');
