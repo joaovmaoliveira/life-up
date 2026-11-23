@@ -76,6 +76,23 @@ h2{color:#fff;margin:14px 2px 8px;font-size:1.1rem}
 .meta-h .cor{width:10px;align-self:stretch;border:2px solid var(--line);flex:none;border-radius:6px}
 .link{background:none;border:none;color:#3a5bd0;padding:6px 0;font-weight:600}
 .vazio{color:#d8d2ea;text-align:center;padding:24px 10px}
+/* calendário */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-h{text-align:center;font-weight:700}
+.cal-d{aspect-ratio:1;border:2px solid var(--line);background:#fff;border-radius:8px;padding:2px 0 0;color:var(--ink);font-weight:700;
+  display:flex;flex-direction:column;align-items:center;justify-content:space-between;font-size:.85rem}
+.cal-d.hj{box-shadow:0 0 0 3px var(--gold)}
+.cal-d.sel{border-width:4px;border-color:#15121f}
+.cal-d .pts{display:flex;gap:2px;height:8px;margin-bottom:3px}
+.cal-d .pts i,.cal-ev>i{width:6px;height:6px;border:1px solid #15121f;border-radius:2px;display:block}
+.cal-d .pts i.fim{background:var(--gold);transform:rotate(45deg)}
+i.leg{display:inline-block;width:10px;height:10px;border:2px solid var(--line);border-radius:3px;margin-right:4px;vertical-align:-1px}
+i.leg.fim{background:var(--gold);transform:rotate(45deg);border-radius:1px}
+.cal-q{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:.88rem}
+.cal-q .xis{color:var(--bad);font-weight:700;width:16px;text-align:center}
+.hr{font-size:.78rem;color:var(--muted);min-width:52px}
+.cal-ev{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:#fff;border:2px solid var(--line);border-radius:10px;padding:8px;margin:6px 0;color:var(--ink)}
+.cal-ev>i{width:10px;height:10px}
 .resumo{display:flex;justify-content:space-between;color:#fff;font-size:.85rem;margin:2px 2px 8px}
 
 /* barra inferior */
@@ -161,7 +178,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '0.8.3';
+const VERSAO = '0.9.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -360,6 +377,7 @@ function migrar(){
   if (!S.stats) S.stats = {};
   if (!S.stats.aurora) S.stats.aurora = {};
   if (S.titulo === undefined) S.titulo = null;   // título escolhido (null = inicial)
+  if (!S.eventos) S.eventos = [];    // agenda do calendário (parte 5)
   if (!S.cos.eq) S.cos.eq = { cab:null, roupa:null, mao:null, pet:null, cen:null };   // peças equipadas (parte 3b)
 }
 let S;
@@ -1175,6 +1193,7 @@ function telaMissoes(){
   let h = `<div class="sub">${Object.entries(subs).map(([k,v]) => `<button class="chip ${ui.sub===k?'on':''}" data-a="sub" data-id="${k}">${v}</button>`).join('')}</div>`;
   if (ui.sub !== 'dias') return h + telaPeriodicas(ui.sub);
   h += `<div class="resumo"><span>${fmtData(hoje())}</span><span>${feitas}/${n} feitas</span></div>`;
+  h += agendaHoje();
   if (!S.metas.length){
     h += `<div class="card"><b>Bem-vindo ao Life UP!</b><p>Comece criando uma meta na aba <b>Metas</b>. Depois adicione quests a ela: as quests do dia aparecem aqui.</p>
       <button class="btn" data-a="tab" data-id="metas">Ir para Metas</button></div>`;
@@ -1287,6 +1306,134 @@ function telaMetas(){
   h += `<button class="btn" data-a="novaMeta">+ Nova meta</button>`;
   return h;
 }
+/* ===================== CALENDÁRIO (parte 5) ===================== */
+const REPETE = {nao:'Não repete', dia:'Todo dia', sem:'Toda semana', mes:'Todo mês', ano:'Todo ano'};
+const SEMANA_LONGA = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+function repeteTxt(rep, data){
+  const d = parseKey(data);
+  if (rep === 'sem'){ const w = d.getDay(); return `${w === 0 || w === 6 ? 'Todo' : 'Toda'} ${SEMANA_LONGA[w]}`; }
+  if (rep === 'mes') return `Todo mês, dia ${d.getDate()}`;
+  if (rep === 'ano') return `Todo ano, ${fmtCurta(data)}`;
+  return REPETE[rep];
+}
+function eventoNoDia(e, d){
+  if (d < e.data || (e.ate && d > e.ate) || (e.excl||[]).includes(d)) return false;
+  const a = parseKey(e.data), b = parseKey(d);
+  if (e.rep === 'dia') return true;
+  if (e.rep === 'sem') return a.getDay() === b.getDay();
+  if (e.rep === 'mes') return a.getDate() === b.getDate();
+  if (e.rep === 'ano') return a.getDate() === b.getDate() && a.getMonth() === b.getMonth();
+  return d === e.data;
+}
+const eventosDoDia = d => S.eventos.filter(e => eventoNoDia(e, d)).sort((x, y) => (x.hora||'').localeCompare(y.hora||''));
+const metasQueTerminam = d => S.metas.filter(m => m.fim === d && m.status === 'ativa');
+const RES_TXT = {ok:'Dia cumprido', escudo:'Salvo por escudo', falha:'Dia não cumprido'};
+
+function telaCalendario(){
+  if (!ui.calMes) ui.calMes = hoje().slice(0, 8) + '01';
+  if (!ui.calDia) ui.calDia = hoje();
+  const ini = parseKey(ui.calMes), y = ini.getFullYear(), m = ini.getMonth();
+  const nDias = new Date(y, m+1, 0).getDate(), vazios = (ini.getDay()+6) % 7, hj = hoje();
+  let h = `<h2>Calendário</h2><div class="card" style="padding:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <button class="chip" style="flex:0 0 44px" data-a="calMes" data-id="-1">‹</button>
+      <b class="px" style="text-transform:capitalize">${MESES[m]} ${y}</b>
+      <button class="chip" style="flex:0 0 44px" data-a="calMes" data-id="1">›</button></div>
+    <div class="cal">${['S','T','Q','Q','S','S','D'].map(x => `<div class="small cal-h">${x}</div>`).join('')}`;
+  for (let i = 0; i < vazios; i++) h += `<div></div>`;
+  for (let n = 1; n <= nDias; n++){
+    const d = keyOf(new Date(y, m, n)), r = resultadoDia(d);
+    const evs = eventosDoDia(d), fim = metasQueTerminam(d).length;
+    const pts = evs.slice(0, 3).map(e => `<i style="background:${cat(e.cat).cor}"></i>`).join('') + (fim ? `<i class="fim"></i>` : '');
+    h += `<button class="cal-d ${d===hj?'hj':''} ${d===ui.calDia?'sel':''}" style="${r?`background:${COR_DIA[r]};color:#fff`:''}" data-a="calDia" data-id="${d}">
+      <span>${n}</span><span class="pts">${pts}</span></button>`;
+  }
+  h += `</div>
+    <div class="small" style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px">
+      <span><i class="leg" style="background:${COR_DIA.ok}"></i>cumprido</span><span><i class="leg" style="background:${COR_DIA.escudo}"></i>escudo</span>
+      <span><i class="leg" style="background:${COR_DIA.falha}"></i>não cumprido</span><span><i class="leg fim"></i>fim de meta</span></div>
+    ${ui.calMes !== hj.slice(0,8)+'01' ? `<button class="link" data-a="calHoje">Voltar para hoje</button>` : ''}</div>`;
+  return h + painelDia(ui.calDia);
+}
+function painelDia(d){
+  const hj = hoje(), evs = eventosDoDia(d), fins = metasQueTerminam(d);
+  let h = `<div class="card"><b>${fmtData(d)}/${d.slice(0,4)}${d===hj?' · hoje':''}</b>`;
+  // resultado e quests: só hoje e dias passados (amanhã é surpresa)
+  if (d <= hj){
+    const r = S.dias[d], res = d < hj ? resultadoDia(d) : null;
+    if (d < hj) h += `<div style="margin-top:6px">${res ? `<span class="tag" style="background:${COR_DIA[res]}">${RES_TXT[res]}</span>` : `<span class="small">Sem quests neste dia</span>`}</div>`;
+    if (r && (r.prog.length || r.extras.length)){
+      const qs = r.prog.map(k => ({k, q:quest(qidDe(k))}));
+      const feitas = qs.filter(x => r.feitas[x.k]).length;
+      h += `<div class="small" style="margin-top:8px"><b>Quests diárias: ${feitas}/${qs.length} feitas</b>${d===hj?' (em andamento)':''}</div>`;
+      h += qs.map(x => `<div class="cal-q">${r.feitas[x.k] ? ic('check','16px').replace(/#f4f0e6/g,'#4cb85c') : `<span class="xis">✗</span>`}
+        <span>${esc(x.q ? x.q.titulo : '(quest apagada)')}</span></div>`).join('');
+      if (r.extras.length) h += `<div class="small" style="margin-top:6px"><b>Extras</b></div>` + r.extras.map(x => `<div class="cal-q">${x.feita ? ic('check','16px').replace(/#f4f0e6/g,'#4cb85c') : `<span class="xis">✗</span>`}<span>${esc(x.titulo)}</span></div>`).join('');
+    } else if (d < hj && res) h += `<div class="small" style="margin-top:6px">A lista de quests deste dia não ficou guardada.</div>`;
+  }
+  // eventos
+  h += `<div class="small" style="margin-top:10px"><b>Agenda</b></div>`;
+  h += evs.length ? evs.map(e => `<button class="cal-ev" data-a="editarEvento" data-id="${e.id}">
+      <i style="background:${cat(e.cat).cor}"></i><span class="hr">${e.hora || 'dia todo'}</span>
+      <span style="flex:1;min-width:0"><b>${esc(e.titulo)}</b>${e.rep !== 'nao' ? `<span class="small" style="display:block">${repeteTxt(e.rep, e.data)}</span>` : ''}</span></button>`).join('')
+    : `<div class="small">Nenhum evento.</div>`;
+  if (fins.length) h += `<div class="small" style="margin-top:10px"><b>Data final de meta</b></div>` + fins.map(m => `<div class="cal-q"><i class="leg fim"></i><span>${esc(m.titulo)}</span></div>`).join('');
+  h += `<button class="btn" data-a="novoEvento" data-id="${d}">+ Novo evento neste dia</button></div>`;
+  return h;
+}
+function agendaHoje(){
+  const evs = eventosDoDia(hoje());
+  if (!evs.length) return '';
+  return `<div class="card" style="padding:10px 12px" data-a="tab" data-id="calendario"><b class="small" style="color:var(--ink)">Hoje na agenda</b>
+    ${evs.map(e => `<div class="cal-q"><i class="leg" style="background:${cat(e.cat).cor}"></i><span class="hr">${e.hora || 'dia todo'}</span><span>${esc(e.titulo)}</span></div>`).join('')}</div>`;
+}
+function formEvento(id, dia){
+  const e = id ? S.eventos.find(x => x.id === id) : {titulo:'', data:dia || hoje(), hora:'', cat:10, rep:'nao', ate:''};
+  ui.evDia = dia || ui.calDia || e.data;
+  sheetEl.innerHTML = `<div class="sheet"><h3>${id?'Editar evento':'Novo evento'}</h3><div class="card">
+    <label>Título</label><input id="eTitulo" value="${esc(e.titulo)}" placeholder="Ex.: Aula, aniversário, consulta">
+    <label>Data</label><input id="eData" type="date" value="${e.data}">
+    <label>Horário</label><input id="eHora" type="time" value="${e.hora||''}">
+    <div class="small">Deixe vazio para o dia todo.</div>
+    <label>Categoria</label><select id="eCat">${CATS.map(c=>`<option value="${c.id}" ${c.id==e.cat?'selected':''}>${c.nome}</option>`).join('')}</select>
+    <label>Repete?</label><select id="eRep"></select>
+    <div id="eAteBox"><label>Repete até (opcional)</label><input id="eAte" type="date" value="${e.ate||''}">
+      <div class="small">Deixe vazio para repetir sem fim.</div></div>
+    ${id && e.rep !== 'nao' ? `<div class="small" style="margin-top:8px">Mudanças valem para todas as repetições.</div>` : ''}
+    <button class="btn" data-a="salvarEvento" data-id="${id||''}">Salvar</button>
+    ${id?`<button class="btn bad" data-a="apagarEvento" data-id="${id}">Apagar evento</button>`:''}
+    <button class="btn sec" data-a="fechar">Cancelar</button></div></div>`;
+  const rep = document.getElementById('eRep'), data = document.getElementById('eData'), box = document.getElementById('eAteBox');
+  const opts = () => { const v = rep.value || e.rep, dt = data.value || hoje();
+    rep.innerHTML = Object.keys(REPETE).map(k => `<option value="${k}" ${k===v?'selected':''}>${repeteTxt(k, dt)}</option>`).join('');
+    box.style.display = rep.value === 'nao' ? 'none' : ''; };
+  rep.onchange = opts; data.onchange = opts; opts();
+}
+function salvarEvento(id){
+  const v = x => document.getElementById(x).value;
+  const titulo = v('eTitulo').trim();
+  if (!titulo) return janela('<h3>Dê um título ao evento</h3>', [{txt:'Ok', ret:1}]);
+  const dados = { titulo, data: v('eData') || hoje(), hora: v('eHora'), cat: +v('eCat'), rep: v('eRep'), ate: v('eRep') === 'nao' ? '' : v('eAte') };
+  if (dados.ate && dados.ate < dados.data) return janela('<h3>"Repete até" não pode ser antes da data do evento</h3>', [{txt:'Ok', ret:1}]);
+  if (id) Object.assign(S.eventos.find(x => x.id === id), dados);
+  else S.eventos.push({ id:uid(), ...dados, excl:[] });
+  ui.calDia = dados.rep === 'nao' || !id ? dados.data : ui.calDia;
+  ui.calMes = ui.calDia.slice(0, 8) + '01';
+  salvar(); fecharSheet(); render();
+}
+async function apagarEvento(id){
+  const e = S.eventos.find(x => x.id === id), d = ui.evDia;
+  let v;
+  if (e.rep !== 'nao' && eventoNoDia(e, d))
+    v = await janela(`<h3>Apagar evento que se repete</h3><p><b>${esc(e.titulo)}</b></p>`,
+      [{txt:`Só em ${fmtCurta(d)}`, cls:'bad', ret:'um'}, {txt:'Todas as repetições', cls:'bad', ret:'todos'}, {txt:'Cancelar', cls:'sec', ret:null}]);
+  else v = (await confirmar('Apagar este evento?', 'Apagar', 'bad')) ? 'todos' : null;
+  if (!v) return;
+  if (v === 'um') (e.excl = e.excl || []).push(d);
+  else S.eventos = S.eventos.filter(x => x.id !== id);
+  salvar(); fecharSheet(); render();
+}
+
 function telaEmBreve(nome, txt){
   return `<h2>${nome}</h2><div class="card"><b>Em breve</b><p>${txt}</p></div>`;
 }
@@ -1374,7 +1521,7 @@ function render(){
   let corpo = '';
   if (ui.tab === 'missoes') corpo = telaMissoes();
   else if (ui.tab === 'metas') corpo = telaMetas();
-  else if (ui.tab === 'calendario') corpo = telaEmBreve('Calendário', 'O calendário com o resultado de cada dia e seus eventos chega na próxima fase. O histórico de hoje em diante já está sendo guardado.');
+  else if (ui.tab === 'calendario') corpo = telaCalendario();
   else if (ui.tab === 'loja') corpo = telaLoja();
   else if (ui.tab === 'perfil') corpo = telaPerfil();
   else if (ui.tab === 'galeria') corpo = telaGaleria();
@@ -1524,6 +1671,13 @@ function importar(){
 
 /* ===================== CLIQUES ===================== */
 const acoes = {
+  calMes: n => { const d = parseKey(ui.calMes); d.setMonth(d.getMonth() + +n); ui.calMes = keyOf(d); render(); },
+  calDia: d => { ui.calDia = d; render(); },
+  calHoje: () => { ui.calDia = hoje(); ui.calMes = hoje().slice(0,8)+'01'; render(); },
+  novoEvento: d => formEvento(null, d),
+  editarEvento: id => formEvento(id, ui.calDia),
+  salvarEvento,
+  apagarEvento,
   tab: id => { ui.tab = id; render(); window.scrollTo(0,0); },
   filtro: id => { ui.filtro = id; render(); },
   sub: id => { ui.sub = id; render(); },
