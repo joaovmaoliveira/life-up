@@ -177,7 +177,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '0.10.0';
+const VERSAO = '0.10.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -257,7 +257,8 @@ const COSM = [
 const cosm = id => COSM.find(c => c.id === id);
 
 /* ===================== CONQUISTAS (dados) ===================== */
-const TITULO_INICIAL = 'Residente R3 de Pediatria';
+const TITULOS_INICIAIS = ['Residente', 'Trabalhador', 'Pessoa'];   // escolhido na primeira abertura (e trocável em Títulos)
+const tituloInicial = () => S.tituloIni || TITULOS_INICIAIS[0];
 const TIER = {
   b:{nome:'Bronze',   cor:'#d0844a', esc:'#8a4a1c'},
   p:{nome:'Prata',    cor:'#d8e0ec', esc:'#8a94a8'},
@@ -379,7 +380,8 @@ function migrar(){
   if (!S.stats.aurora) S.stats.aurora = {};
   if (S.titulo === undefined) S.titulo = null;   // título escolhido (null = inicial)
   if (!S.eventos) S.eventos = [];
-  if (!S.notas) S.notas = [];        // anotações (parte 6)
+  if (!S.notas) S.notas = [];
+  if (S.tituloIni === undefined && S.metas.length) S.tituloIni = 'Residente';   // quem já usava o app        // anotações (parte 6)
   if (S.bencao === undefined) S.bencao = null;   // bênção de categoria: {cat, ini, fim}    // agenda do calendário (parte 5)
   if (!S.cos.eq) S.cos.eq = { cab:null, roupa:null, mao:null, pet:null, cen:null };   // peças equipadas (parte 3b)
 }
@@ -1013,7 +1015,7 @@ function desbloquear(c){
     if (v === 'bau' && S.baus > 0) await abrirBau();
   });
 }
-const tituloAtual = () => (S.titulo && S.conq[S.titulo] && conq(S.titulo)) ? conq(S.titulo).titulo : TITULO_INICIAL;
+const tituloAtual = () => (S.titulo && S.conq[S.titulo] && conq(S.titulo)) ? conq(S.titulo).titulo : tituloInicial();
 const _medCache = {};
 function medalhaSVG(tier, tem, tam){
   const k = tier + tem;
@@ -1067,9 +1069,9 @@ async function verConq(id){
   }
 }
 function telaTitulos(){
-  const lista = [{id:null, titulo:TITULO_INICIAL, sub:'Título inicial'}, ...CONQ.filter(c => S.conq[c.id]).map(c => ({id:c.id, titulo:c.titulo, sub:`${TIER[c.tier].nome} · ${condTxt(c)}`, tier:c.tier}))];
+  const lista = [...TITULOS_INICIAIS.map(t => ({id:'ini:' + t, titulo:t, sub:'Título inicial'})), ...CONQ.filter(c => S.conq[c.id]).map(c => ({id:c.id, titulo:c.titulo, sub:`${TIER[c.tier].nome} · ${condTxt(c)}`, tier:c.tier}))];
   return `<h2>Títulos</h2><p class="small" style="color:#cfc8e6">Escolha o título que aparece no seu Perfil. Novos títulos vêm das conquistas.</p>
-    ${lista.map(x => `<button class="tit ${(S.titulo && S.conq[S.titulo] ? S.titulo : null) === x.id ? 'on' : ''}" data-a="usarTitulo" data-id="${x.id || ''}">
+    ${lista.map(x => `<button class="tit ${(S.titulo && S.conq[S.titulo] ? S.titulo : 'ini:' + tituloInicial()) === x.id ? 'on' : ''}" data-a="usarTitulo" data-id="${x.id || ''}">
       ${x.tier ? medalhaSVG(x.tier, true, '30px') : ic('medalha','30px')}<span><b>${x.titulo}</b><span class="small">${x.sub}</span></span></button>`).join('')}
     <button class="btn sec" data-a="tab" data-id="medalhas" style="margin-top:12px">Medalhas</button>
     <button class="btn sec" data-a="tab" data-id="perfil" style="margin-top:8px">Voltar ao Perfil</button>`;
@@ -1909,7 +1911,7 @@ const acoes = {
   fechar: fecharSheet,
   abrirBau: () => abrirBau(),
   verCosm, verConq,
-  usarTitulo: id => { S.titulo = id || null; salvar(); render(); },
+  usarTitulo: id => { if (id && id.startsWith('ini:')){ S.titulo = null; S.tituloIni = id.slice(4); } else S.titulo = id || null; salvar(); render(); },
   equipar: v => { const [cat, id] = v.split(':'); equipar(cat, id || null); },
   abaLoja: id => { ui.loja = id; render(); },
   comprar, acoesQuest, resgatar,
@@ -1925,7 +1927,7 @@ const acoes = {
   exportar, importar,
   apagarTudo: async () => {
     if (!(await confirmar('Apagar TUDO? Isso não pode ser desfeito (a não ser que você tenha um backup).', 'Apagar tudo', 'bad'))) return;
-    S = novoEstado(); migrar(); diaDeHoje(); salvar(); ui.tab = 'missoes'; render();
+    S = novoEstado(); migrar(); diaDeHoje(); salvar(); ui.tab = 'missoes'; render(); escolherTituloInicial();
   },
 };
 document.addEventListener('click', e => {
@@ -1936,9 +1938,18 @@ document.addEventListener('click', e => {
 });
 
 /* ===================== INÍCIO ===================== */
+function escolherTituloInicial(){
+  if (S.tituloIni) return;
+  filaAvisos = filaAvisos.then(async () => { if (S.tituloIni) return;
+  const v = await janela(`<div class="big">${ic('medalha','56px')}</div><h3 class="px">BEM-VINDO AO LIFE UP!</h3>
+    <p>Escolha seu título inicial. Ele aparece embaixo do seu nível no Perfil e pode ser trocado depois em Títulos.</p>`,
+    TITULOS_INICIAIS.map(t => ({txt:t, ret:t})));
+  S.tituloIni = v || TITULOS_INICIAIS[0]; salvar(); render(); });
+}
 checarVirada();
 salvar();   // libera conquistas automáticas já ao abrir (ex.: Desenvolvedor de App)
 render();
+escolherTituloInicial();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checarVirada(); });
 setInterval(checarVirada, 60000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
