@@ -85,9 +85,8 @@ h2{color:#fff;margin:14px 2px 8px;font-size:1.1rem}
 .cal-d.sel{border-width:4px;border-color:#15121f}
 .cal-d .pts{display:flex;gap:2px;height:8px;margin-bottom:3px}
 .cal-d .pts i,.cal-ev>i{width:6px;height:6px;border:1px solid #15121f;border-radius:2px;display:block}
-.cal-d .pts i.fim{background:var(--gold);transform:rotate(45deg)}
 i.leg{display:inline-block;width:10px;height:10px;border:2px solid var(--line);border-radius:3px;margin-right:4px;vertical-align:-1px}
-i.leg.fim{background:var(--gold);transform:rotate(45deg);border-radius:1px}
+.cal-casa{background:var(--gold);display:flex;align-items:center;justify-content:center;padding:4px 0}
 .cal-q{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:.88rem}
 .cal-q .xis{color:var(--bad);font-weight:700;width:16px;text-align:center}
 .hr{font-size:.78rem;color:var(--muted);min-width:52px}
@@ -178,7 +177,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '0.9.0';
+const VERSAO = '0.9.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -1128,6 +1127,7 @@ function avisoMeta(m){
 /* ===================== ÍCONES EM PIXEL ART ===================== */
 const ICOR = {K:'#231a2e',W:'#f4f0e6',L:'#a9b4c8',G:'#f0c83c',Y:'#c9902a',R:'#e04848',O:'#f08c2a',B:'#9a5a2a',b:'#6e3e1c',U:'#4a7fe0',P:'#ecd9a6',D:'#b8894a'};
 const ICONES = {
+  casa:[".....KK.....","....KRRK....","...KRRRRK...","..KRRRRRRK..",".KRRRRRRRRK.","KKKKKKKKKKKK",".KWWWWWWWWK.",".KWUUWWBBWK.",".KWUUWWBBWK.",".KWWWWWBBWK.",".KWWWWWBBWK.",".KKKKKKKKKK."],
   espada:["..........WW",".........WWL","........WWL.",".......WWL..","......WWL...",".....WWL....",".G..WWL.....",".GGWWL......","..GGL.......","..BGGG......",".BB..G......","BB.........."],
   alvo:["...KKKKKK...","..KRRRRRRK..",".KRWWWWWWRK.","KRWRRRRRRWRK","KRWRWWWWRWRK","KRWRWRRWRWRK","KRWRWRRWRWRK","KRWRWWWWRWRK","KRWRRRRRRWRK",".KRWWWWWWRK.","..KRRRRRRK..","...KKKKKK..."],
   calendario:["..K......K..",".KKKKKKKKKK.",".KRRRRRRRRK.",".KRRRRRRRRK.",".KKKKKKKKKK.",".KWWWWWWWWK.",".KWKWKWKWWK.",".KWWWWWWWWK.",".KWKWKWKWWK.",".KWWWWWWWWK.",".KKKKKKKKKK.","............"],
@@ -1326,37 +1326,37 @@ function eventoNoDia(e, d){
   return d === e.data;
 }
 const eventosDoDia = d => S.eventos.filter(e => eventoNoDia(e, d)).sort((x, y) => (x.hora||'').localeCompare(y.hora||''));
-const metasQueTerminam = d => S.metas.filter(m => m.fim === d && m.status === 'ativa');
 const RES_TXT = {ok:'Dia cumprido', escudo:'Salvo por escudo', falha:'Dia não cumprido'};
 
 function telaCalendario(){
   if (!ui.calMes) ui.calMes = hoje().slice(0, 8) + '01';
   if (!ui.calDia) ui.calDia = hoje();
   const ini = parseKey(ui.calMes), y = ini.getFullYear(), m = ini.getMonth();
-  const nDias = new Date(y, m+1, 0).getDate(), vazios = (ini.getDay()+6) % 7, hj = hoje();
+  const nDias = new Date(y, m+1, 0).getDate(), vazios = ini.getDay(), hj = hoje();
   let h = `<h2>Calendário</h2><div class="card" style="padding:10px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <button class="chip" style="flex:0 0 44px" data-a="calMes" data-id="-1">‹</button>
-      <b class="px" style="text-transform:capitalize">${MESES[m]} ${y}</b>
-      <button class="chip" style="flex:0 0 44px" data-a="calMes" data-id="1">›</button></div>
-    <div class="cal">${['S','T','Q','Q','S','S','D'].map(x => `<div class="small cal-h">${x}</div>`).join('')}`;
+      <b class="px" style="text-transform:capitalize;flex:1;text-align:center">${MESES[m]} ${y}</b>
+      <button class="chip cal-casa" style="flex:0 0 44px" data-a="calHoje" aria-label="Voltar para o mês atual">${ic('casa','20px')}</button>
+      <button class="chip" style="flex:0 0 44px;margin-left:6px" data-a="calMes" data-id="1">›</button></div>
+    <div class="cal">${['D','S','T','Q','Q','S','S'].map(x => `<div class="small cal-h">${x}</div>`).join('')}`;
   for (let i = 0; i < vazios; i++) h += `<div></div>`;
   for (let n = 1; n <= nDias; n++){
     const d = keyOf(new Date(y, m, n)), r = resultadoDia(d);
-    const evs = eventosDoDia(d), fim = metasQueTerminam(d).length;
-    const pts = evs.slice(0, 3).map(e => `<i style="background:${cat(e.cat).cor}"></i>`).join('') + (fim ? `<i class="fim"></i>` : '');
+    const evs = eventosDoDia(d);
+    const pts = evs.slice(0, 3).map(e => `<i style="background:${cat(e.cat).cor}"></i>`).join('');
     h += `<button class="cal-d ${d===hj?'hj':''} ${d===ui.calDia?'sel':''}" style="${r?`background:${COR_DIA[r]};color:#fff`:''}" data-a="calDia" data-id="${d}">
       <span>${n}</span><span class="pts">${pts}</span></button>`;
   }
   h += `</div>
     <div class="small" style="display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px">
       <span><i class="leg" style="background:${COR_DIA.ok}"></i>cumprido</span><span><i class="leg" style="background:${COR_DIA.escudo}"></i>escudo</span>
-      <span><i class="leg" style="background:${COR_DIA.falha}"></i>não cumprido</span><span><i class="leg fim"></i>fim de meta</span></div>
-    ${ui.calMes !== hj.slice(0,8)+'01' ? `<button class="link" data-a="calHoje">Voltar para hoje</button>` : ''}</div>`;
+      <span><i class="leg" style="background:${COR_DIA.falha}"></i>não cumprido</span></div>
+    </div>`;
   return h + painelDia(ui.calDia);
 }
 function painelDia(d){
-  const hj = hoje(), evs = eventosDoDia(d), fins = metasQueTerminam(d);
+  const hj = hoje(), evs = eventosDoDia(d);
   let h = `<div class="card"><b>${fmtData(d)}/${d.slice(0,4)}${d===hj?' · hoje':''}</b>`;
   // resultado e quests: só hoje e dias passados (amanhã é surpresa)
   if (d <= hj){
@@ -1377,7 +1377,6 @@ function painelDia(d){
       <i style="background:${cat(e.cat).cor}"></i><span class="hr">${e.hora || 'dia todo'}</span>
       <span style="flex:1;min-width:0"><b>${esc(e.titulo)}</b>${e.rep !== 'nao' ? `<span class="small" style="display:block">${repeteTxt(e.rep, e.data)}</span>` : ''}</span></button>`).join('')
     : `<div class="small">Nenhum evento.</div>`;
-  if (fins.length) h += `<div class="small" style="margin-top:10px"><b>Data final de meta</b></div>` + fins.map(m => `<div class="cal-q"><i class="leg fim"></i><span>${esc(m.titulo)}</span></div>`).join('');
   h += `<button class="btn" data-a="novoEvento" data-id="${d}">+ Novo evento neste dia</button></div>`;
   return h;
 }
