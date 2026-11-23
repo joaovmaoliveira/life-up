@@ -177,7 +177,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '0.9.1';
+const VERSAO = '0.9.2';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -308,12 +308,14 @@ _x('Superação','alem',     'o','Além do Limite','Concluir uma meta com 150% d
 _x('Superação','fenix',    'p','Fênix',         'Refazer 7 dias de sequência depois de perder uma', ['fenix'], {ok:() => !!S.stats.perdeu && S.seq.atual >= 7});
 _x('Superação','destemido','p','Destemido',     'Um mês inteiro sem usar escudo (mín. 25 dias cumpridos)', ['dado'], {ok:() => mesesFechados().some(M => { const n = contarMes(M); return !n.escudo && n.ok >= 25; })});
 _x('Coleção','colecao','p','Colecionador','Ter 10 cosméticos', ['bau'], {prog:() => [nCosm(), 10]});
-_x('Especial','dev','v','Desenvolvedor de App','Preparar e já: colocar o Life UP para funcionar', ['bau'], {ok:() => true});
+// conquista comemorativa: só libera a partir da versão 1.0.0 (lançamento)
+_x('Especial','dev','v','Desenvolvedor de App','Medalha comemorativa do lançamento da versão 1.0.0', ['bau'], {nome:'Preparar e já', ok:() => +VERSAO.split('.')[0] >= 1});
 _x('Especial','pediatra','x','Pediatra','Concluir a residência em Pediatria (você marca)', ['bau'], {manual:true, ok:() => false});
 _x('Surpresas','s1','s',_txt('QXJhdXRvIGRhIEF1cm9yYQ=='), _txt('Q29uY2x1aXIgcGVsbyBtZW5vcyAxIHF1ZXN0IGVudHJlIDA0aCBlIDA3aCBlbSAzMCBkaWFzIGRpZmVyZW50ZXM='), ['escudo'], {secreta:true, prog:() => [Object.keys(S.stats.aurora).length, 30]});
 _x('Surpresas','s2','s',_txt('UG9sw61tYXRh'), _txt('Q29uY2x1aXIgcXVlc3RzIGRlIHBlbG8gbWVub3MgOCBjYXRlZ29yaWFzIGRpZmVyZW50ZXMgbmEgbWVzbWEgc2VtYW5h'), ['bau'], {secreta:true, ok:() => Object.values(S.sem).some(L => Object.keys(L.qc||{}).filter(c => L.qc[c] > 0).length >= 8)});
 _x('Surpresas','s3','s',_txt('R3VhcmRpw6NvIGRvIFRlbXBv'), _txt('Q29tcGxldGFyIDEgYW5vIGRlIHVzbyBkbyBhcHA='), ['bau'], {secreta:true, prog:() => [Math.max(0, diasEntre(S.criado, hoje())), 365]});
 const conq = id => CONQ.find(c => c.id === id);
+const nomeConq = c => c.nome || c.titulo;   // nome da medalha (igual ao título, exceto quando tem nome próprio)
 const condTxt = c => typeof c.cond === 'function' ? c.cond() : c.cond;
 const conqOk = c => c.prog ? (([a, b]) => a >= b)(c.prog()) : c.ok();
 // chances do baú (decididas em 16/11/2026)
@@ -997,7 +999,7 @@ function desbloquear(c){
     const v = await janela(`<div class="premio"><div class="raios"><div>${medalhaSVG(c.tier, true, '110px')}</div></div></div>
       <h3 class="px" style="margin-top:14px">CONQUISTA!</h3>
       <div class="small" style="color:var(--ink)">${t.nome} · ${condTxt(c)}</div>
-      <p>Novo título: <b>${c.titulo}</b></p><p>Prêmio: <b>${premios.join(' + ')}</b></p>`,
+      ${c.nome ? `<p><b>${c.nome}</b></p>` : ''}<p>Novo título: <b>${c.titulo}</b></p><p>Prêmio: <b>${premios.join(' + ')}</b></p>`,
       [{txt:'Usar este título', ret:'tit'}, ...(c.premio.includes('bau') ? [{txt:'Abrir baú agora', cls:'ok', ret:'bau'}] : []), {txt:'Continuar', cls:'sec', ret:null}]);
     if (v === 'tit'){ S.titulo = c.id; salvar(); render(); }
     if (v === 'bau' && S.baus > 0) await abrirBau();
@@ -1021,7 +1023,7 @@ function celMedalha(c){
   const tem = !!S.conq[c.id], oculta = c.secreta && !tem;
   return `<button class="med ${tem ? '' : 'nao'}" data-a="verConq" data-id="${c.id}">
     <div class="m">${medalhaSVG(c.tier, tem, '44px')}${oculta ? '<span class="qq">?</span>' : ''}</div>
-    <b>${oculta ? '???' : c.titulo}</b><span>${oculta ? 'Surpresa' : condTxt(c)}</span></button>`;
+    <b>${oculta ? '???' : nomeConq(c)}</b><span>${oculta ? 'Surpresa' : condTxt(c)}</span></button>`;
 }
 function telaMedalhas(){
   const n = CONQ.filter(c => S.conq[c.id]).length;
@@ -1040,7 +1042,7 @@ async function verConq(id){
   let corpo = `<div style="margin:6px 0">${medalhaSVG(c.tier, tem, '96px')}</div>`;
   if (oculta) corpo += `<h3>???</h3><p class="small" style="color:var(--ink)">Conquista surpresa. Continue jogando para descobrir!</p>`;
   else {
-    corpo += `<h3>${c.titulo}</h3><div class="small" style="color:var(--ink)">${t.nome}${c.cat ? ' · ' + cat(c.cat).nome : ' · ' + c.grupo}</div>
+    corpo += `<h3>${nomeConq(c)}</h3><div class="small" style="color:var(--ink)">${t.nome}${c.cat ? ' · ' + cat(c.cat).nome : (c.grupo !== t.nome ? ' · ' + c.grupo : '')}</div>
       <p><b>Como ganhar:</b> ${condTxt(c)}</p>`;
     if (!tem && c.prog){ const [a, b] = c.prog(); corpo += `<div class="bar" style="background:#fff"><i style="width:${Math.min(100, a/b*100)}%"></i></div><div class="small" style="color:var(--ink)">${Math.min(a, b)} / ${b}</div>`; }
     corpo += `<p class="small" style="color:var(--ink)">Prêmio: ${c.premio.map(i => PREMIO_NOME[i]).join(' + ')} · Título: ${c.titulo}</p>`;
