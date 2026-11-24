@@ -177,7 +177,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '0.10.1';
+const VERSAO = '0.10.2';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -1072,7 +1072,7 @@ function telaTitulos(){
   const lista = [...TITULOS_INICIAIS.map(t => ({id:'ini:' + t, titulo:t, sub:'Título inicial'})), ...CONQ.filter(c => S.conq[c.id]).map(c => ({id:c.id, titulo:c.titulo, sub:`${TIER[c.tier].nome} · ${condTxt(c)}`, tier:c.tier}))];
   return `<h2>Títulos</h2><p class="small" style="color:#cfc8e6">Escolha o título que aparece no seu Perfil. Novos títulos vêm das conquistas.</p>
     ${lista.map(x => `<button class="tit ${(S.titulo && S.conq[S.titulo] ? S.titulo : 'ini:' + tituloInicial()) === x.id ? 'on' : ''}" data-a="usarTitulo" data-id="${x.id || ''}">
-      ${x.tier ? medalhaSVG(x.tier, true, '30px') : ic('medalha','30px')}<span><b>${x.titulo}</b><span class="small">${x.sub}</span></span></button>`).join('')}
+      ${x.tier ? medalhaSVG(x.tier, true, '30px') : ''}<span><b>${x.titulo}</b><span class="small">${x.sub}</span></span></button>`).join('')}
     <button class="btn sec" data-a="tab" data-id="medalhas" style="margin-top:12px">Medalhas</button>
     <button class="btn sec" data-a="tab" data-id="perfil" style="margin-top:8px">Voltar ao Perfil</button>`;
 }
@@ -1685,7 +1685,7 @@ function telaPerfil(){
 }
 function telaConfig(){
   return `<h2>Configurações</h2>${cardRevisao()}
-    <div class="card"><b>Backup</b><p class="small">Seus dados ficam só neste celular. Exporte um backup de vez em quando (ex.: toda semana) e guarde em Arquivos/iCloud.</p>
+    <div class="card"><b>Backup</b><p class="small">Seus dados ficam só neste celular. Exporte um backup a cada ${BACKUP_DIAS} dias e guarde em Arquivos/iCloud.</p>${avisoBackup()}
       <button class="btn" data-a="exportar">Exportar backup</button>
       <button class="btn sec" data-a="importar">Importar backup</button>
       <input type="file" id="arqImport" accept=".json,application/json" style="display:none"></div>
@@ -1824,13 +1824,24 @@ function formExtra(){
 /* ===================== BACKUP ===================== */
 async function exportar(){
   const nome = `lifeup-backup-${hoje()}.json`;
+  const ant = S.ultBackup; S.ultBackup = hoje();   // registra a data já dentro do arquivo
   const txt = JSON.stringify(S);
   const arq = new File([txt], nome, {type:'application/json'});
+  const ok = () => { salvar(); render(); };
   try {
-    if (navigator.canShare && navigator.canShare({files:[arq]})){ await navigator.share({files:[arq], title:'Backup Life UP'}); return; }
-  } catch(e){ if (e.name === 'AbortError') return; }
+    if (navigator.canShare && navigator.canShare({files:[arq]})){ await navigator.share({files:[arq], title:'Backup Life UP'}); return ok(); }
+  } catch(e){ if (e.name === 'AbortError'){ S.ultBackup = ant; return; } }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(arq); a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+  ok();
+}
+// lembrete de backup: contagem regressiva de 15 dias desde o último exportado
+const BACKUP_DIAS = 15;
+function avisoBackup(){
+  const falta = S.ultBackup ? BACKUP_DIAS - diasEntre(S.ultBackup, hoje()) : 0;
+  return falta > 0
+    ? `<p class="small" style="margin:8px 0 0"><b>Backup sugerido em: ${falta} dia${falta > 1 ? 's' : ''}</b> · último em ${fmtCurta(S.ultBackup)}</p>`
+    : `<p class="small" style="margin:8px 0 0;color:var(--bad)"><b>Backup sugerido: AGORA</b>${S.ultBackup ? ` · último em ${fmtCurta(S.ultBackup)}` : ''}</p>`;
 }
 function importar(){
   const inp = document.getElementById('arqImport');
