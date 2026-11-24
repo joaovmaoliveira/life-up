@@ -59,6 +59,8 @@ h2{color:#fff;margin:14px 2px 8px;font-size:1.1rem}
   margin:0 0 12px;padding:12px;border-radius:14px}
 .sub{display:flex;gap:6px;overflow-x:auto;margin:6px 0 10px}
 .chip{background:var(--bg2);color:#fff;border:2px solid var(--line);padding:6px 8px;white-space:nowrap;font-size:.8rem;border-radius:10px;flex:1 0 auto}
+.sub3{display:grid;grid-template-columns:repeat(3,1fr)}
+.sub3 .chip{padding:6px 4px}
 .chip.on{background:var(--gold);color:var(--ink)}
 .chip.off{opacity:.45}
 .quest{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:2px dashed #cfc7b4}
@@ -187,7 +189,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '1.1.0';
+const VERSAO = '1.2.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -341,7 +343,7 @@ const ITENS = {
   dado:       {nome:'Dado da troca',           preco:100, max:5, desc:'Troca 1 quest do dia: sorteia outra da mesma meta; se não houver, você escreve a troca (vale o mesmo XP). Use tocando no nome da quest.'},
 };   // escudo ganho com estoque cheio vira moedas
 const SEMANA = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-const FREQ = {dias:'Diária (dias da semana)', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual'};
+const FREQ = {dias:'Diária (dias da semana)', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual', unica:'Única (uma vez só)'};
 const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 
 /* ===================== DATAS (dia vira às 05h) ===================== */
@@ -360,6 +362,7 @@ function periodo(freq, k = hoje()){
   if (freq === 'mensal') return {key:`M${y}-${m}`, ini:keyOf(new Date(y,m,1)), fim:keyOf(new Date(y,m+1,0)), nome:`${MESES[m]} de ${y}`};
   if (freq === 'bimestral'){ const b = Math.floor(m/2);
     return {key:`B${y}-${b}`, ini:keyOf(new Date(y,2*b,1)), fim:keyOf(new Date(y,2*b+2,0)), nome:`${MESES[2*b]} e ${MESES[2*b+1]} de ${y}`}; }
+  if (freq === 'unica') return {key:'U', ini:'2000-01-01', fim:'9999-12-31', nome:'Tarefas únicas'};
   return {key:`A${y}`, ini:`${y}-01-01`, fim:`${y}-12-31`, nome:`Ano de ${y}`};
 }
 const fmtData = k => { const d = parseKey(k); return `${SEMANA[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth()+1)}`; };
@@ -606,6 +609,7 @@ function periodosRestantes(freq, ate){
   return n;
 }
 function alvoDoPeriodo(q){
+  if (q.freq === 'unica') return q.valor;   // tarefa única: sem recálculo
   const m = q.metas.map(meta).find(m => m && m.tipo === 'auto' && m.status === 'ativa' && m.fim && m.fim >= hoje());
   if (!m) return q.valor;
   const n = periodosRestantes(q.freq, m.fim);
@@ -637,7 +641,7 @@ async function registrar(id){
     const cats = [...new Set(q.metas.map(meta).filter(Boolean).map(m => m.cat))];
     reg.xpQuest = Math.round(DIF[q.dif].xp * (1 + bonusSeq()));
     somarXPQuest(g, reg.xpQuest, cats); g.moedas += DIF[q.dif].m;
-    e.completa = true; reg.completou = true;
+    e.completa = true; reg.completou = true; if (q.freq === 'unica') e.dataConcl = hoje();
   }
   fecharLevel(g); aplicar(g); reg.g = g; e.regs.push(reg);
   salvar(); render();
@@ -652,7 +656,7 @@ function desfazerRegistro(id){
   e.feito -= reg.v;
   reg.metas.forEach(mid => { const m = meta(mid); if (m) m.progresso -= reg.v; });
   reg.concl.forEach(mid => { const m = meta(mid); if (m && m.status === 'cumprida'){ m.status = 'ativa'; m.concluida = null; } });
-  if (reg.completou) e.completa = false;
+  if (reg.completou){ e.completa = false; delete e.dataConcl; }
   salvar(); render();
 }
 function fecharPeriodos(){
@@ -1218,8 +1222,8 @@ function telaMissoes(){
     const falta = n - feitas, f = folga(n);
     status = (feitas >= 1 && falta <= f) ? `${ic('check','1em').replace(/#f4f0e6/g,'#4cb85c')} Dia garantido para a sequência` : `Faltam ${Math.max(1, falta - f)} para garantir a sequência`;
   }
-  const subs = {dias:'Diária', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual'};
-  let h = `<div class="sub">${Object.entries(subs).map(([k,v]) => `<button class="chip ${ui.sub===k?'on':''}" data-a="sub" data-id="${k}">${v}</button>`).join('')}</div>`;
+  const subs = {dias:'Diária', semanal:'Semanal', mensal:'Mensal', bimestral:'Bimestral', anual:'Anual', unica:'Única'};
+  let h = `<div class="sub sub3">${Object.entries(subs).map(([k,v]) => `<button class="chip ${ui.sub===k?'on':''}" data-a="sub" data-id="${k}">${v}</button>`).join('')}</div>`;
   if (ui.sub !== 'dias') return h + telaPeriodicas(ui.sub);
   h += `<div class="resumo"><span>${fmtData(hoje())}</span><span>${feitas}/${n} feitas</span></div>`;
   h += seloBencao() + agendaHoje();
@@ -1254,11 +1258,14 @@ function telaMissoes(){
 }
 function telaPeriodicas(freq){
   const p = periodo(freq), h0 = hoje();
-  const restam = diasEntre(h0, p.fim) + 1;
-  const qs = S.quests.filter(q => q.ativa && q.freq === freq && q.metas.some(id => metaViva(meta(id))));
-  let h = `<div class="resumo"><span>${p.nome}</span><span>${restam} dia${restam>1?'s':''} restante${restam>1?'s':''}</span></div>`;
+  const restam = diasEntre(h0, p.fim) + 1, unica = freq === 'unica';
+  // tarefa única some depois de feita (fica visível só no dia em que foi concluída, para poder desfazer)
+  const qs = S.quests.filter(q => q.ativa && q.freq === freq && q.metas.some(id => metaViva(meta(id))) &&
+    (!unica || !perDe(q).completa || perDe(q).dataConcl === h0));
+  let h = unica ? `<div class="resumo"><span>Tarefas únicas</span><span>somem depois de feitas</span></div>`
+    : `<div class="resumo"><span>${p.nome}</span><span>${restam} dia${restam>1?'s':''} restante${restam>1?'s':''}</span></div>`;
   if (freq === 'semanal') h += painelSemana(p.ini);
-  if (!qs.length) return h + `<div class="card vazio" style="color:var(--muted)">Nenhuma quest ${FREQ[freq].toLowerCase()}.<br><span class="small">Crie nas suas metas (aba Metas → Quests → + Quest) escolhendo a frequência.</span></div>`;
+  if (!qs.length) return h + `<div class="card vazio" style="color:var(--muted)">${unica ? 'Nenhuma tarefa única pendente.' : `Nenhuma quest ${FREQ[freq].toLowerCase()}.`}<br><span class="small">Crie nas suas metas (aba Metas → Quests → + Quest) escolhendo a frequência.</span></div>`;
   return h + qs.map(q => {
     const e = perDe(q);
     const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto');
@@ -1316,6 +1323,7 @@ function cardMeta(m){
     h += qs.map(q => `<div class="quest"><div class="qtxt"><b>${esc(q.titulo)}</b>
         <span class="small">${DIF[q.dif].nome} · ${(q.freq||'dias')==='dias'
           ? `${q.dias.length? q.dias.map(d=>SEMANA[d]).join(', ') : 'todos os dias'}${q.valor && m.tipo==='auto' ? ` · vale ${num(q.valor)} ${esc(m.unidade||'')}`:''}`
+          : q.freq === 'unica' ? `Única · ${perDe(q).completa ? 'feita ✓' : 'pendente'}${m.tipo==='auto' ? ` · vale ${num(q.valor)} ${esc(m.unidade||'')}`:''}`
           : `${FREQ[q.freq]} · ${num(q.valor)} ${m.tipo==='auto'?esc(m.unidade||''):'vez(es)'} por período`}</span></div>
         <button class="link" data-a="editarQuest" data-id="${q.id}">editar</button></div>`).join('');
     h += `<div class="row"><button class="btn sec" data-a="novaQuest" data-id="${m.id}">+ Quest</button>
@@ -1589,6 +1597,12 @@ function gerarRelatorio(){
     inc.forEach(e => { const q = quest(e.qid);
       L.push(`- INCOMPLETA: ${q ? q.titulo : '(quest apagada)'}${q ? ` (${FREQ[q.freq]})` : ''} — ${num(e.feito)} de ${num(e.alvo ?? (q ? q.valor : 0))}, período até ${br(e.fim)}, +${e.parcial||0} XP proporcional`); });
   }
+  // tarefas únicas
+  const un = Object.values(S.per).filter(e => e.dataConcl && dentro(e.dataConcl));
+  if (un.length){ L.push('', `== TAREFAS ÚNICAS CONCLUÍDAS ==`);
+    un.forEach(e => { const q = quest(e.qid); L.push(`- ${q ? q.titulo : '(quest apagada)'} (${br(e.dataConcl)})`); }); }
+  const pend = S.quests.filter(q => q.ativa && q.freq === 'unica' && !perDe(q).completa);
+  if (pend.length){ L.push('', `== TAREFAS ÚNICAS PENDENTES ==`); pend.forEach(q => L.push(`- ${q.titulo}`)); }
   // conquistas
   const cq = CONQ.filter(c => dentro(S.conq[c.id]));
   if (cq.length){ L.push('', `== CONQUISTAS NO PERÍODO ==`); cq.forEach(c => L.push(`- ${c.secreta ? 'Surpresa' : nomeConq(c)} (${br(S.conq[c.id])})`)); }
@@ -1806,9 +1820,11 @@ function formQuest(id, metaId){
     const periodica = document.getElementById('qFreq').value !== 'dias';
     document.getElementById('qDiasBox').style.display = periodica ? 'none' : '';
     document.getElementById('qValorBox').style.display = (auto || periodica) ? '' : 'none';
-    document.getElementById('qValorLbl').textContent = periodica ? 'Meta do período' : 'Valor sugerido (quanto soma na meta)';
-    document.getElementById('qValorTxt').textContent = periodica
-      ? (auto ? 'Quanto juntar/fazer em cada período. Ex.: 1000 (R$ por mês).' : 'Quantas vezes por período. Ex.: 3 (academia 3x na semana).') : '';
+    const unica = document.getElementById('qFreq').value === 'unica';
+    document.getElementById('qValorBox').style.display = (auto || (periodica && !unica)) ? '' : 'none';
+    document.getElementById('qValorLbl').textContent = unica ? 'Valor (quanto soma na meta)' : periodica ? 'Meta do período' : 'Valor sugerido (quanto soma na meta)';
+    document.getElementById('qValorTxt').textContent = unica ? 'Feita uma vez, a tarefa some da lista. Ex.: 1.'
+      : periodica ? (auto ? 'Quanto juntar/fazer em cada período. Ex.: 1000 (R$ por mês).' : 'Quantas vezes por período. Ex.: 3 (academia 3x na semana).') : '';
   };
   document.querySelectorAll('.sheet .ck input').forEach(i => i.onchange = updValor);
   document.getElementById('qFreq').onchange = updValor;
