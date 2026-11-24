@@ -25,6 +25,15 @@ html,body{margin:0;background:var(--bg);color:var(--ink);
   font-family:'Pixel Operator',-apple-system,system-ui,sans-serif;font-size:18px}
 body{padding-top:env(safe-area-inset-top);padding-bottom:calc(72px + env(safe-area-inset-bottom))}
 .px{font-weight:700;letter-spacing:.5px}
+/* tela de abertura (~2 s) */
+#splash{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .35s}
+#splash.sai{opacity:0;pointer-events:none}
+#splash img{width:140px;height:140px;image-rendering:pixelated;animation:sp-pula 1s steps(2) infinite}
+#splash .sp-nome{color:var(--gold);font-weight:700;font-size:28px;letter-spacing:4px;text-shadow:3px 3px 0 #15121f}
+#splash .sp-barra{width:160px;height:14px;border:3px solid #15121f;background:var(--bg2);border-radius:4px;overflow:hidden}
+#splash .sp-barra i{display:block;height:100%;width:0;background:var(--gold);animation:sp-carrega 1.8s steps(10) forwards}
+@keyframes sp-pula{50%{transform:translateY(-6px)}}
+@keyframes sp-carrega{to{width:100%}}
 button{font:inherit;cursor:pointer}
 input,select,textarea{font:inherit;font-size:16px;width:100%;padding:10px;border:3px solid var(--line);
   background:#fff;color:var(--ink);border-radius:10px;-webkit-appearance:none;appearance:none}
@@ -170,6 +179,7 @@ nav button:not(.on) svg{opacity:.55}
 </style>
 </head>
 <body>
+<div id="splash"><img src="icon-512.png" alt=""><div class="sp-nome">LIFE UP</div><div class="sp-barra"><i></i></div></div>
 <div id="app"></div>
 <div id="sheet"></div>
 <div id="modal"></div>
@@ -177,7 +187,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '1.0.1';
+const VERSAO = '1.1.0';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -1119,7 +1129,13 @@ function pedirNumero(titulo, padrao, sub=''){
     [{txt:'Confirmar', val:()=>{ const v = parseFloat(String(document.getElementById('pnum').value).replace(',','.')); return isNaN(v) ? 0 : v; }},
      {txt:'Cancelar', cls:'sec', ret:null}]);
 }
-let filaAvisos = Promise.resolve();
+// os avisos (escolha do título, conquistas, baús) só aparecem depois da tela de abertura
+const SPLASH_MS = 2000;
+let filaAvisos = new Promise(ok => setTimeout(() => {
+  const sp = document.getElementById('splash');
+  if (sp){ sp.classList.add('sai'); setTimeout(() => sp.remove(), 400); }
+  setTimeout(ok, 350);
+}, SPLASH_MS));
 const avisar = (html) => { filaAvisos = filaAvisos.then(() => janela(html, [{txt:'Continuar', ret:true}])); };
 function avisoLevel(g){
   filaAvisos = filaAvisos.then(async () => {
