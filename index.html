@@ -189,7 +189,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '1.2.0';
+const VERSAO = '1.2.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -539,7 +539,7 @@ function bonusMeta(g, m){
 async function concluirQuest(id){
   const q = quest(qidDe(id)), r = diaDeHoje();
   if (!q || r.feitas[id]) return;
-  const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto' && m.status !== 'nao');
+  const autos = q.semSoma ? [] : q.metas.map(meta).filter(m => m && m.tipo === 'auto' && m.status !== 'nao');
   let valor = 0;
   if (autos.length){
     const un = autos[0].unidade ? ` (${autos[0].unidade})` : '';
@@ -609,7 +609,7 @@ function periodosRestantes(freq, ate){
   return n;
 }
 function alvoDoPeriodo(q){
-  if (q.freq === 'unica') return q.valor;   // tarefa única: sem recálculo
+  if (q.freq === 'unica' || q.semSoma) return q.valor;   // tarefa única ou quest que não soma: sem recálculo
   const m = q.metas.map(meta).find(m => m && m.tipo === 'auto' && m.status === 'ativa' && m.fim && m.fim >= hoje());
   if (!m) return q.valor;
   const n = periodosRestantes(q.freq, m.fim);
@@ -625,11 +625,11 @@ const alvoPer = (e, q) => e.alvo ?? q.valor;
 async function registrar(id){
   const q = quest(id); if (!q) return;
   const e = perDe(q);
-  const autos = q.metas.map(meta).filter(m => m && m.tipo === 'auto' && m.status !== 'nao');
+  const autos = q.semSoma ? [] : q.metas.map(meta).filter(m => m && m.tipo === 'auto' && m.status !== 'nao');
   const falta = Math.max(0, alvoPer(e,q) - e.feito);
   const padrao = autos.length ? (falta || alvoPer(e,q)) : 1;
   const un = autos.length && autos[0].unidade ? ` (${esc(autos[0].unidade)})` : (autos.length ? '' : ' (vezes)');
-  const v = await pedirNumero(`Quanto foi?${un}`, padrao, `${esc(q.titulo)}${autos.length?` · soma em: ${autos.map(m=>esc(m.titulo)).join(', ')}`:''}`);
+  const v = (q.freq === 'unica' && !autos.length) ? (falta || 1) : await pedirNumero(`Quanto foi?${un}`, padrao, `${esc(q.titulo)}${autos.length?` · soma em: ${autos.map(m=>esc(m.titulo)).join(', ')}`:''}`);
   if (v === null || v === 0) return;
   const g = ganhoVazio(), reg = { v, metas: autos.map(m=>m.id), concl:[], completou:false };
   e.feito += v;
@@ -1321,9 +1321,9 @@ function cardMeta(m){
   h += `<button class="link" data-a="abrir" data-id="${m.id}">${aberta?'▾':'▸'} Quests (${qs.length})</button>`;
   if (aberta){
     h += qs.map(q => `<div class="quest"><div class="qtxt"><b>${esc(q.titulo)}</b>
-        <span class="small">${DIF[q.dif].nome} · ${(q.freq||'dias')==='dias'
+        <span class="small">${DIF[q.dif].nome}${q.semSoma && m.tipo==='auto' ? ' · não soma na meta' : ''} · ${(q.freq||'dias')==='dias'
           ? `${q.dias.length? q.dias.map(d=>SEMANA[d]).join(', ') : 'todos os dias'}${q.valor && m.tipo==='auto' ? ` · vale ${num(q.valor)} ${esc(m.unidade||'')}`:''}`
-          : q.freq === 'unica' ? `Única · ${perDe(q).completa ? 'feita ✓' : 'pendente'}${m.tipo==='auto' ? ` · vale ${num(q.valor)} ${esc(m.unidade||'')}`:''}`
+          : q.freq === 'unica' ? `Única · ${perDe(q).completa ? 'feita ✓' : 'pendente'}${m.tipo==='auto' && !q.semSoma ? ` · vale ${num(q.valor)} ${esc(m.unidade||'')}`:''}`
           : `${FREQ[q.freq]} · ${num(q.valor)} ${m.tipo==='auto'?esc(m.unidade||''):'vez(es)'} por período`}</span></div>
         <button class="link" data-a="editarQuest" data-id="${q.id}">editar</button></div>`).join('');
     h += `<div class="row"><button class="btn sec" data-a="novaQuest" data-id="${m.id}">+ Quest</button>
@@ -1801,6 +1801,7 @@ function formQuest(id, metaId){
     <div class="small" id="qDiasTxt"></div></div>
     <label>Ligada às metas</label>${metas.map(m=>`<label class="ck"><input type="checkbox" value="${m.id}" ${q.metas.includes(m.id)?'checked':''}>
       <span class="tag" style="background:${cat(m.cat).cor}">${esc(m.titulo)}</span></label>`).join('')}
+    <label class="ck" id="qSemSomaBox"><input type="checkbox" id="qSemSoma" ${q.semSoma?'checked':''}> <span>Não soma no progresso da meta (só dá XP e moedas)</span></label>
     <div id="qValorBox"><label id="qValorLbl">Valor sugerido (quanto soma na meta)</label>
       <input id="qValor" type="number" inputmode="decimal" step="any" value="${q.valor}" placeholder="1">
       <div class="small" id="qValorTxt"></div></div>
@@ -1815,8 +1816,10 @@ function formQuest(id, metaId){
     const d = +b.dataset.d; formDias = formDias.includes(d) ? formDias.filter(x=>x!==d) : [...formDias, d].sort(); updDias();
   });
   const updValor = () => {
-    const sel = [...document.querySelectorAll('.sheet .ck input:checked')].map(i => meta(i.value));
-    const auto = sel.some(m => m && m.tipo==='auto');
+    const sel = [...document.querySelectorAll('.sheet .ck input:checked')].filter(i => i.id !== 'qSemSoma').map(i => meta(i.value));
+    const temAuto = sel.some(m => m && m.tipo==='auto');
+    document.getElementById('qSemSomaBox').style.display = temAuto ? '' : 'none';
+    const auto = temAuto && !document.getElementById('qSemSoma').checked;
     const periodica = document.getElementById('qFreq').value !== 'dias';
     document.getElementById('qDiasBox').style.display = periodica ? 'none' : '';
     document.getElementById('qValorBox').style.display = (auto || periodica) ? '' : 'none';
@@ -1828,16 +1831,18 @@ function formQuest(id, metaId){
   };
   document.querySelectorAll('.sheet .ck input').forEach(i => i.onchange = updValor);
   document.getElementById('qFreq').onchange = updValor;
+  document.getElementById('qSemSoma').onchange = updValor;
   updDias(); updValor();
 }
 function salvarQuest(id){
   const titulo = document.getElementById('qTitulo').value.trim();
-  const metas = [...document.querySelectorAll('.sheet .ck input:checked')].map(i => i.value);
+  const metas = [...document.querySelectorAll('.sheet .ck input:checked')].filter(i => i.id !== 'qSemSoma').map(i => i.value);
+  const semSoma = document.getElementById('qSemSoma').checked;
   if (!titulo) return janela('<h3>Dê um título à quest</h3>', [{txt:'Ok', ret:1}]);
   if (!metas.length) return janela('<h3>Ligue a quest a pelo menos uma meta</h3>', [{txt:'Ok', ret:1}]);
   const valor = parseFloat(String(document.getElementById('qValor').value).replace(',','.')) || 1;
   const freq = document.getElementById('qFreq').value;
-  const dados = { titulo, metas, dif:document.getElementById('qDif').value, freq, dias: freq==='dias' ? [...formDias] : [], valor };
+  const dados = { titulo, metas, dif:document.getElementById('qDif').value, freq, dias: freq==='dias' ? [...formDias] : [], valor, semSoma };
   if (id) Object.assign(quest(id), dados);
   else S.quests.push({ id:uid(), ...dados, ativa:true, criada:hoje() });
   sincronizarHoje(); salvar(); fecharSheet(); render();
