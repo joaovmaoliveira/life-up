@@ -177,7 +177,7 @@ nav button:not(.on) svg{opacity:.55}
 <script src="sprites.js"></script>
 <script>
 'use strict';
-const VERSAO = '1.0.0';
+const VERSAO = '1.0.1';
 
 /* ===================== CONFIGURAÇÕES DO JOGO ===================== */
 const CATS = [
@@ -1938,7 +1938,7 @@ const acoes = {
   exportar, importar,
   apagarTudo: async () => {
     if (!(await confirmar('Apagar TUDO? Isso não pode ser desfeito (a não ser que você tenha um backup).', 'Apagar tudo', 'bad'))) return;
-    S = novoEstado(); migrar(); diaDeHoje(); salvar(); ui.tab = 'missoes'; render(); escolherTituloInicial();
+    S = novoEstado(); migrar(); escolherTituloInicial(); diaDeHoje(); salvar(); ui.tab = 'missoes'; render();
   },
 };
 document.addEventListener('click', e => {
@@ -1957,10 +1957,10 @@ function escolherTituloInicial(){
     TITULOS_INICIAIS.map(t => ({txt:t, ret:t})));
   S.tituloIni = v || TITULOS_INICIAIS[0]; salvar(); render(); });
 }
+escolherTituloInicial();   // primeiro a escolha do título; depois os avisos (conquistas, baú)
 checarVirada();
-salvar();   // libera conquistas automáticas já ao abrir (ex.: Desenvolvedor de App)
+salvar();   // libera conquistas automáticas já ao abrir (ex.: Preparar e já)
 render();
-escolherTituloInicial();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checarVirada(); });
 setInterval(checarVirada, 60000);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
